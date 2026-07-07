@@ -6,6 +6,10 @@ const WuCard = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuCard })),
   { ssr: false }
 );
+const WuCardHeader = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuCardHeader })),
+  { ssr: false }
+);
 const WuIcon = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuIcon })),
   { ssr: false }
@@ -19,36 +23,40 @@ const WuText = dynamic(
   { ssr: false }
 );
 
-type BookingSummaryIcon = 'wm-calendar-today' | 'wm-schedule' | 'wm-av-timer' | 'wm-language';
+type BookingSummaryIcon = 'wm-calendar-today' | 'wm-schedule' | 'wm-hourglass' | 'wm-globe';
 
 interface BookingSummaryRowProps {
   icon: BookingSummaryIcon;
   label: string;
-  value: string;
+  value: string | null;
 }
 
 function BookingSummaryRow({ icon, label, value }: BookingSummaryRowProps) {
   return (
-    <div className="flex items-start gap-3 py-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-        <WuIcon icon={icon} className="text-base text-blue-700" aria-hidden />
-      </div>
-      <div className="min-w-0 flex-1">
-        <WuSubtext size="sm" className="text-gray-500">
+    <div className="flex items-center justify-between gap-4 py-3">
+      <span className="flex items-center gap-2">
+        <WuIcon icon={icon} className="text-base text-accent" aria-hidden />
+        <WuSubtext size="sm" className="text-ink-muted">
           {label}
         </WuSubtext>
-        <WuText size="sm" className="mt-0.5 font-medium text-gray-900">
+      </span>
+      {value ? (
+        <WuText size="md" className="text-right font-medium text-ink">
           {value}
         </WuText>
-      </div>
+      ) : (
+        <WuText size="md" className="text-right italic text-ink-muted">
+          Not selected yet
+        </WuText>
+      )}
     </div>
   );
 }
 
 interface BookingSummaryCardProps {
   studyTitle: string;
-  dateLabel: string;
-  timeLabel: string;
+  dateLabel: string | null;
+  timeLabel: string | null;
   durationMinutes: number;
   timezoneLabel: string;
 }
@@ -61,25 +69,25 @@ export function BookingSummaryCard({
   timezoneLabel,
 }: BookingSummaryCardProps) {
   return (
-    <WuCard rounded className="overflow-hidden border border-gray-200 bg-white shadow-sm">
-      <div className="border-b border-gray-100 bg-gray-50 px-5 py-4">
-        <WuSubtext size="sm" className="text-gray-500">
+    <WuCard rounded className="overflow-hidden bg-surface-sunken p-0 wu-shadow-md">
+      <WuCardHeader className="flex flex-col gap-0.5 px-5 py-4">
+        <WuSubtext size="sm" className="text-ink-muted">
           Booking summary
         </WuSubtext>
-        <WuText size="sm" className="mt-1 text-[13px] font-semibold text-gray-900">
+        <WuText size="md" className="font-semibold text-ink">
           {studyTitle}
         </WuText>
-      </div>
+      </WuCardHeader>
 
-      <div className="divide-y divide-gray-100 px-5">
+      <div className="divide-y divide-line px-5 py-1">
         <BookingSummaryRow icon="wm-calendar-today" label="Date" value={dateLabel} />
         <BookingSummaryRow icon="wm-schedule" label="Time" value={timeLabel} />
         <BookingSummaryRow
-          icon="wm-av-timer"
+          icon="wm-hourglass"
           label="Duration"
           value={`${durationMinutes} minutes`}
         />
-        <BookingSummaryRow icon="wm-language" label="Timezone" value={timezoneLabel} />
+        <BookingSummaryRow icon="wm-globe" label="Timezone" value={timezoneLabel} />
       </div>
     </WuCard>
   );

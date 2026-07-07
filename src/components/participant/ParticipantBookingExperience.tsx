@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { format, parseISO } from 'date-fns';
 import { BookingSummaryCard } from '@/components/participant/BookingSummaryCard';
-import { ParticipantBookingHeader } from '@/components/participant/ParticipantBookingHeader';
 import { DEFAULT_PARTICIPANT_BOOKING_CONFIG } from '@/data/mock-participant-booking';
 import { TIMEZONE_OPTIONS } from '@/data/mock-scheduling';
 import {
@@ -24,6 +23,10 @@ const WuCard = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuCard })),
   { ssr: false }
 );
+const WuChip = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuChip })),
+  { ssr: false }
+);
 const WuCombobox = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuCombobox })),
   { ssr: false }
@@ -34,6 +37,10 @@ const WuDatePicker = dynamic(
 );
 const WuDisplay = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuDisplay })),
+  { ssr: false }
+);
+const WuFooter = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuFooter })),
   { ssr: false }
 );
 const WuHeading = dynamic(
@@ -72,14 +79,16 @@ function formatConfirmationSummary(date: string, timeLabel: string) {
 function ConfirmationState({ summary }: { summary: string }) {
   return (
     <div className="flex min-h-[420px] flex-col items-center justify-center px-4 py-12 text-center">
-      <WuIcon icon="wc-completion" className="text-6xl text-blue-600" aria-hidden />
-      <WuDisplay size="md" className="mt-6 text-gray-900">
+      <span className="flex h-20 w-20 items-center justify-center rounded-full bg-success-surface">
+        <WuIcon icon="wm-check" className="text-4xl text-success" aria-hidden />
+      </span>
+      <WuDisplay size="md" className="mt-6 text-ink">
         You&apos;re all set
       </WuDisplay>
-      <WuText size="md" className="mt-3 max-w-md text-gray-700">
+      <WuText size="md" className="mt-3 max-w-md text-ink">
         {summary}
       </WuText>
-      <WuSubtext size="sm" className="mt-4 text-gray-500">
+      <WuSubtext size="sm" className="mt-4 text-ink-muted">
         We&apos;ve sent the details to your email.
       </WuSubtext>
     </div>
@@ -162,21 +171,33 @@ export function ParticipantBookingExperience() {
 
   if (isConfirmed) {
     return (
-      <div className="flex min-h-screen flex-col bg-gray-50">
-        <ParticipantBookingHeader studyTitle={config.studyTitle} />
-        <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-8">
-          <ConfirmationState summary={confirmationSummary} />
+      <div className="flex min-h-screen flex-col bg-surface">
+        <main className="flex-1 w-full p-6">
+          <div className="mx-auto w-full max-w-[480px]">
+            <ConfirmationState summary={confirmationSummary} />
+          </div>
         </main>
+        <WuFooter>QuestionPro UX</WuFooter>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
-      <ParticipantBookingHeader studyTitle={config.studyTitle} />
+    <div className="flex min-h-screen flex-col bg-surface">
+      <main className="flex-1 w-full p-6">
+        <div className="mx-auto flex w-full max-w-[480px] flex-col gap-8">
+          <header className="flex flex-col gap-1">
+            <WuSubtext size="sm" className="font-semibold uppercase tracking-wide text-accent">
+              Participant booking
+            </WuSubtext>
+            <WuHeading size="lg" className="font-semibold text-ink">
+              {config.studyTitle}
+            </WuHeading>
+            <WuText size="md" className="text-ink-muted">
+              You&apos;re booking a {config.interviewDurationMinutes}-minute interview for this study.
+            </WuText>
+          </header>
 
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-10 px-6 py-8">
-        <div className="max-w-sm">
           <WuCombobox
             Label="Your timezone"
             data={TIMEZONE_OPTIONS}
@@ -187,83 +208,93 @@ export function ParticipantBookingExperience() {
             variant="outlined"
             placeholder="Search timezone"
           />
+
+          <section className="flex flex-col gap-2">
+            <WuHeading size="sm">Choose a date</WuHeading>
+
+            {availableDates.length === 0 ? (
+              <WuCard rounded className="bg-surface-sunken p-5">
+                <WuText size="sm" className="text-ink">
+                  No interview dates available
+                </WuText>
+                <WuSubtext size="sm" className="mt-2 text-ink-muted">
+                  The research team has not opened any bookable dates yet
+                </WuSubtext>
+              </WuCard>
+            ) : (
+              <div className="date-field">
+                <WuDatePicker
+                  value={selectedDate ? parseISO(selectedDate.date) : undefined}
+                  onChange={handleSelectDate}
+                  minDate={calendarRange?.start}
+                  maxDate={calendarRange?.end}
+                  variant="outlined"
+                  placeholder="Select date"
+                  formatString="MMM d, yyyy"
+                  showResetButton
+                  onReset={() => handleSelectDate(undefined)}
+                />
+              </div>
+            )}
+          </section>
+
+          <fieldset disabled={!hasSelectedDate} className="flex flex-col gap-2 border-0 p-0">
+            <WuHeading size="sm">Choose a time</WuHeading>
+
+            {!hasSelectedDate ? (
+              <WuSubtext size="sm" className="text-ink-muted">
+                Select a date to see available times
+              </WuSubtext>
+            ) : timeSlots.length === 0 ? (
+              <WuCard rounded className="bg-surface-sunken p-5">
+                <WuText size="sm" className="text-ink">
+                  No time slots left on this date
+                </WuText>
+                <WuSubtext size="sm" className="mt-2 text-ink-muted">
+                  Try another interview day
+                </WuSubtext>
+              </WuCard>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {timeSlots.map((slot) => (
+                  <WuChip
+                    key={slot.id}
+                    variant="secondary"
+                    size="md"
+                    selected={selectedTimeSlot?.id === slot.id}
+                    onClick={() => setSelectedTimeSlot(slot)}
+                  >
+                    {formatSlotChipLabel(slot.startTime)}
+                  </WuChip>
+                ))}
+              </div>
+            )}
+          </fieldset>
+
+          <fieldset disabled={!hasSelectedTime} className="flex flex-col gap-2 border-0 p-0">
+            <WuHeading size="sm">Confirm your booking</WuHeading>
+
+            <BookingSummaryCard
+              studyTitle={config.studyTitle}
+              dateLabel={selectedDate ? formatShortDate(selectedDate.date) : null}
+              timeLabel={selectedTimeSlot?.label ?? null}
+              durationMinutes={config.interviewDurationMinutes}
+              timezoneLabel={participantTimezone.label}
+            />
+
+            <WuButton
+              className={`w-full ${hasSelectedTime ? 'wu-shadow-sm' : ''}`}
+              variant="primary"
+              size="md"
+              disabled={!hasSelectedTime}
+              onClick={handleConfirmBooking}
+            >
+              Confirm booking
+            </WuButton>
+          </fieldset>
         </div>
-
-        <WuSubtext size="sm" className="text-gray-400">
-          1. Pick a date · 2. Pick a time · 3. Confirm
-        </WuSubtext>
-
-        <section className="space-y-4">
-          <WuHeading size="sm">Choose a date</WuHeading>
-
-          {availableDates.length === 0 ? (
-            <WuCard rounded className="border border-gray-200 bg-white p-6">
-              <WuText size="sm">No interview dates available</WuText>
-              <WuSubtext size="sm" className="mt-2">
-                The research team has not opened any bookable dates yet
-              </WuSubtext>
-            </WuCard>
-          ) : (
-            <div className="max-w-xs">
-              <WuDatePicker
-                value={selectedDate ? parseISO(selectedDate.date) : undefined}
-                onChange={handleSelectDate}
-                minDate={calendarRange?.start}
-                maxDate={calendarRange?.end}
-                variant="outlined"
-                placeholder="Select date"
-                formatString="MMM d, yyyy"
-                showResetButton
-                onReset={() => handleSelectDate(undefined)}
-              />
-            </div>
-          )}
-        </section>
-
-        <fieldset disabled={!hasSelectedDate} className="space-y-4 border-0 p-0">
-          <WuHeading size="sm">Choose a time</WuHeading>
-
-          {!hasSelectedDate ? (
-            <WuSubtext size="sm" className="text-gray-400">
-              Select a date to see available times
-            </WuSubtext>
-          ) : timeSlots.length === 0 ? (
-            <WuCard rounded className="border border-gray-200 bg-white p-6">
-              <WuText size="sm">No time slots left on this date</WuText>
-              <WuSubtext size="sm" className="mt-2">
-                Try another interview day
-              </WuSubtext>
-            </WuCard>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {timeSlots.map((slot) => (
-                <WuButton
-                  key={slot.id}
-                  variant="secondary"
-                  selected={selectedTimeSlot?.id === slot.id}
-                  onClick={() => setSelectedTimeSlot(slot)}
-                >
-                  {formatSlotChipLabel(slot.startTime)}
-                </WuButton>
-              ))}
-            </div>
-          )}
-        </fieldset>
-
-        <fieldset disabled={!hasSelectedTime} className="space-y-4 border-0 p-0">
-          <WuHeading size="sm">Confirm your booking</WuHeading>
-
-          <BookingSummaryCard
-            studyTitle={config.studyTitle}
-            dateLabel={selectedDate ? formatShortDate(selectedDate.date) : '—'}
-            timeLabel={selectedTimeSlot?.label ?? '—'}
-            durationMinutes={config.interviewDurationMinutes}
-            timezoneLabel={participantTimezone.label}
-          />
-
-          <WuButton onClick={handleConfirmBooking}>Confirm booking</WuButton>
-        </fieldset>
       </main>
+      <WuFooter>QuestionPro UX</WuFooter>
     </div>
   );
 }

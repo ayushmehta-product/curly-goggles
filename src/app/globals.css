@@ -1,2 +1,37 @@
 @import "tailwindcss";
 @import '@npm-questionpro/wick-ui-icon/dist/wu-icon.css';
+
+/*
+ * Semantic color layer.
+ * Every value resolves through a Wick UI library token (--wu-*, defined at :root
+ * by wick-ui-lib/dist/style.css) so the page inherits the library's theming.
+ * The library exposes RGB triplets; we wrap them in rgb() here.
+ * Note: the library ships no dedicated "raised surface" (white) token, so
+ * --color-surface is the single literal, isolated to this layer by design.
+ */
+@theme {
+  /* Accent / primary action */
+  --color-accent: rgb(var(--wu-blue-p));
+
+  /* Text */
+  --color-ink: rgb(var(--wu-gray-lead));
+  --color-ink-muted: rgb(var(--wu-gray-subtle));
+  --color-inverse: rgb(255 255 255);
+
+  /* Borders / dividers */
+  --color-line: rgb(var(--wu-gray-40));
+
+  /* Surfaces */
+  --color-surface: rgb(255 255 255);
+  --color-surface-sunken: rgb(var(--wu-gray-10));
+  --color-surface-brand: rgb(var(--wu-blue-switcher));
+
+  /* Success / positive */
+  --color-success: rgb(var(--wu-green-deep));
+  --color-success-surface: rgb(var(--wu-green-soft));
+}
+
+/* Accent-tint the date picker's built-in calendar icon through the accent token. */
+.date-field .wm-calendar-month {
+  color: var(--color-accent);
+}
