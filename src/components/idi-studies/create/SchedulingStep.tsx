@@ -1,9 +1,9 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { addDays, format, parseISO, startOfDay } from 'date-fns';
+import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { SelectableCard } from '@/components/ui/SelectableCard';
 import {
   AVAILABILITY_MODES,
@@ -26,6 +26,12 @@ import {
   type BookableDate,
   type ParticipantBookingConfig,
 } from '@/data/scheduling-utils';
+import {
+  getParticipantFullName,
+  getParticipantInitials,
+  INITIAL_SCHEDULED_PARTICIPANTS,
+  type ScheduledParticipant,
+} from '@/data/mock-scheduling-participants';
 
 const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
@@ -169,7 +175,179 @@ function getAvailabilityModeIcon(mode: AvailabilityMode) {
   return modeIcons[mode];
 }
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+function ParticipantAvatar({ participant }: { participant: ScheduledParticipant }) {
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">
+      {getParticipantInitials(participant)}
+    </span>
+  );
+}
+
+function ParticipantInviteSection({
+  participants,
+  draftFirstName,
+  draftLastName,
+  draftEmail,
+  onDraftFirstNameChange,
+  onDraftLastNameChange,
+  onDraftEmailChange,
+  onAddParticipant,
+  onRemoveParticipant,
+  onSendInvitation,
+  onSendAllInvitations,
+}: {
+  participants: ScheduledParticipant[];
+  draftFirstName: string;
+  draftLastName: string;
+  draftEmail: string;
+  onDraftFirstNameChange: (value: string) => void;
+  onDraftLastNameChange: (value: string) => void;
+  onDraftEmailChange: (value: string) => void;
+  onAddParticipant: () => void;
+  onRemoveParticipant: (participant: ScheduledParticipant) => void;
+  onSendInvitation: (participant: ScheduledParticipant) => void;
+  onSendAllInvitations: () => void;
+}) {
+  const pendingCount = participants.filter(
+    (participant) => participant.invitationStatus === 'not_sent'
+  ).length;
+  const canAdd =
+    draftFirstName.trim().length > 0 &&
+    draftLastName.trim().length > 0 &&
+    isValidEmail(draftEmail);
+
+  return (
+    <section className="rounded-lg border border-gray-200 bg-white">
+      <SectionHeader
+        title="Invite participants"
+        subtitle="Add participants manually and send booking invitation emails when scheduling is ready."
+      />
+
+      <div className="space-y-4 p-5">
+        <p className="text-sm text-gray-600">
+          Enter each participant&apos;s first name, last name, and email address below to invite
+          them to book an interview slot.
+        </p>
+
+        <div className="overflow-hidden rounded-lg border border-gray-200">
+          <div className="grid grid-cols-[1fr_1fr_1.4fr_auto] gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2">
+            <p className="text-xs font-semibold text-gray-600">First name</p>
+            <p className="text-xs font-semibold text-gray-600">Last name</p>
+            <p className="text-xs font-semibold text-gray-600">Email</p>
+            <span className="sr-only">Add participant</span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-[1fr_1fr_1.4fr_auto] lg:items-end">
+            <WuInput
+              variant="outlined"
+              placeholder="Jane"
+              value={draftFirstName}
+              onChange={(event) => onDraftFirstNameChange(event.target.value)}
+            />
+            <WuInput
+              variant="outlined"
+              placeholder="Doe"
+              value={draftLastName}
+              onChange={(event) => onDraftLastNameChange(event.target.value)}
+            />
+            <WuInput
+              variant="outlined"
+              placeholder="janedoe@mail.com"
+              type="email"
+              value={draftEmail}
+              onChange={(event) => onDraftEmailChange(event.target.value)}
+            />
+            <WuButton
+              variant="secondary"
+              Icon={<span className="wm-add" />}
+              aria-label="Add participant"
+              disabled={!canAdd}
+              onClick={onAddParticipant}
+            />
+          </div>
+        </div>
+
+        {participants.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-5">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-gray-400">
+                <span className="wm-person-add text-base" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">No participants added yet</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Add at least one participant to send booking invitation emails.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {participants.map((participant) => (
+              <div
+                key={participant.id}
+                className="rounded-lg border border-gray-200 bg-white px-4 py-3"
+              >
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,1fr)_auto_auto] lg:items-center">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <ParticipantAvatar participant={participant} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-900">
+                        {getParticipantFullName(participant)}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-gray-500">{participant.email}</p>
+                    </div>
+                  </div>
+
+                  <Pill tone={participant.invitationStatus === 'sent' ? 'green' : 'amber'}>
+                    {participant.invitationStatus === 'sent' ? 'Invitation sent' : 'Not sent'}
+                  </Pill>
+
+                  <div className="flex items-center justify-end gap-2">
+                    <WuButton
+                      size="sm"
+                      variant="secondary"
+                      disabled={participant.invitationStatus === 'sent'}
+                      onClick={() => onSendInvitation(participant)}
+                    >
+                      Send invitation
+                    </WuButton>
+                    <WuButton
+                      variant="link"
+                      color="error"
+                      onClick={() => onRemoveParticipant(participant)}
+                    >
+                      Remove
+                    </WuButton>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {pendingCount > 0 && (
+          <div className="flex justify-end">
+            <WuButton
+              Icon={<span className="wm-mark-email-unread" />}
+              iconPosition="left"
+              onClick={onSendAllInvitations}
+            >
+              Send all invitations ({pendingCount})
+            </WuButton>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function SchedulingStep({ onBack, onSaveDraft, onContinue }: SchedulingStepProps) {
+  const { showToast } = useWuShowToast();
   const defaultDates = getDefaultSchedulingDates();
   const [availabilityMode, setAvailabilityMode] = useState<AvailabilityMode>('fixed-range');
   const [specificSlots, setSpecificSlots] = useState<SpecificTimeSlot[]>(() =>
@@ -201,6 +379,17 @@ export function SchedulingStep({ onBack, onSaveDraft, onContinue }: SchedulingSt
     MODERATOR_ASSIGNMENT_OPTIONS[0]
   );
   const [selectedPreviewDateId, setSelectedPreviewDateId] = useState<string | null>(null);
+  const [participants, setParticipants] = useState<ScheduledParticipant[]>(
+    INITIAL_SCHEDULED_PARTICIPANTS
+  );
+  const [draftFirstName, setDraftFirstName] = useState('');
+  const [draftLastName, setDraftLastName] = useState('');
+  const [draftEmail, setDraftEmail] = useState('');
+
+  const sentInvitationCount = useMemo(
+    () => participants.filter((participant) => participant.invitationStatus === 'sent').length,
+    [participants]
+  );
 
   const previewConfig = useMemo(
     () =>
@@ -333,6 +522,91 @@ export function SchedulingStep({ onBack, onSaveDraft, onContinue }: SchedulingSt
       ...currentDays,
       { id: `blackout-${Date.now()}`, date: newBlackoutDate, label: 'Blackout day' },
     ]);
+  }
+
+  function addParticipant() {
+    const firstName = draftFirstName.trim();
+    const lastName = draftLastName.trim();
+    const email = draftEmail.trim().toLowerCase();
+
+    if (!firstName || !lastName || !isValidEmail(email)) {
+      showToast({
+        message: 'Enter a first name, last name, and valid email address.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    if (participants.some((participant) => participant.email === email)) {
+      showToast({ message: 'This participant email is already on the invite list.', variant: 'error' });
+      return;
+    }
+
+    const participant: ScheduledParticipant = {
+      id: `participant-${Date.now()}`,
+      firstName,
+      lastName,
+      email,
+      invitationStatus: 'not_sent',
+    };
+
+    setParticipants((currentParticipants) => [...currentParticipants, participant]);
+    setDraftFirstName('');
+    setDraftLastName('');
+    setDraftEmail('');
+    showToast({
+      message: `${getParticipantFullName(participant)} added to the invite list`,
+      variant: 'success',
+    });
+  }
+
+  function removeParticipant(participant: ScheduledParticipant) {
+    setParticipants((currentParticipants) =>
+      currentParticipants.filter((currentParticipant) => currentParticipant.id !== participant.id)
+    );
+    showToast({
+      message: `${getParticipantFullName(participant)} removed from the invite list`,
+      variant: 'success',
+    });
+  }
+
+  function sendInvitation(participant: ScheduledParticipant) {
+    setParticipants((currentParticipants) =>
+      currentParticipants.map((currentParticipant) =>
+        currentParticipant.id === participant.id
+          ? {
+              ...currentParticipant,
+              invitationStatus: 'sent',
+              invitedAt: new Date().toISOString(),
+            }
+          : currentParticipant
+      )
+    );
+    showToast({
+      message: `Booking invitation sent to ${participant.email}`,
+      variant: 'success',
+    });
+  }
+
+  function sendAllInvitations() {
+    const pendingParticipants = participants.filter(
+      (participant) => participant.invitationStatus === 'not_sent'
+    );
+
+    if (pendingParticipants.length === 0) return;
+
+    const invitedAt = new Date().toISOString();
+    setParticipants((currentParticipants) =>
+      currentParticipants.map((participant) =>
+        participant.invitationStatus === 'not_sent'
+          ? { ...participant, invitationStatus: 'sent', invitedAt }
+          : participant
+      )
+    );
+    showToast({
+      message: `Booking invitations sent to ${pendingParticipants.length} participants`,
+      variant: 'success',
+    });
   }
 
   return (
@@ -586,6 +860,20 @@ export function SchedulingStep({ onBack, onSaveDraft, onContinue }: SchedulingSt
           </div>
         </section>
 
+        <ParticipantInviteSection
+          participants={participants}
+          draftFirstName={draftFirstName}
+          draftLastName={draftLastName}
+          draftEmail={draftEmail}
+          onDraftFirstNameChange={setDraftFirstName}
+          onDraftLastNameChange={setDraftLastName}
+          onDraftEmailChange={setDraftEmail}
+          onAddParticipant={addParticipant}
+          onRemoveParticipant={removeParticipant}
+          onSendInvitation={sendInvitation}
+          onSendAllInvitations={sendAllInvitations}
+        />
+
         <div className="sticky bottom-0 z-20 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.06)]">
           <WuButton variant="secondary" onClick={onBack}>
             Back
@@ -657,6 +945,14 @@ export function SchedulingStep({ onBack, onSaveDraft, onContinue }: SchedulingSt
             <WuButton className="w-full" variant="secondary" onClick={openParticipantBookingPreview}>
               Open participant booking page
             </WuButton>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-900">Participant Invitations</h3>
+          <div className="mt-3">
+            <SummaryRow label="Participants added" value={String(participants.length)} />
+            <SummaryRow label="Invitations sent" value={String(sentInvitationCount)} />
           </div>
         </section>
 
