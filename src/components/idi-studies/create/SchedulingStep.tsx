@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { addDays, format, parseISO, startOfDay } from 'date-fns';
 import { SelectableCard } from '@/components/ui/SelectableCard';
 import {
   AVAILABILITY_MODES,
@@ -10,15 +11,21 @@ import {
   DEFAULT_WEEKLY_AVAILABILITY,
   INITIAL_SPECIFIC_SLOTS,
   MODERATOR_ASSIGNMENT_OPTIONS,
-  PREVIEW_DATES,
   START_INCREMENT_OPTIONS,
   TIMEZONE_OPTIONS,
   type AvailabilityMode,
-  type PreviewDate,
   type SelectOption,
   type SpecificTimeSlot,
   type WeeklyAvailabilityDay,
 } from '@/data/mock-scheduling';
+import {
+  buildParticipantBookingConfig,
+  computeAvailableDates,
+  computeTimeSlotsForDate,
+  saveParticipantBookingPreview,
+  type BookableDate,
+  type ParticipantBookingConfig,
+} from '@/data/scheduling-utils';
 
 const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
@@ -109,6 +116,49 @@ function getAvailabilityHealth(enabledDays: number, estimatedSessions: number) {
   return { label: 'Low availability', tone: 'amber' as const };
 }
 
+function getDefaultSchedulingDates() {
+  const today = startOfDay(new Date());
+  return {
+    startDate: format(today, 'yyyy-MM-dd'),
+    endDate: format(addDays(today, 21), 'yyyy-MM-dd'),
+    specificSlotDate: format(addDays(today, 2), 'yyyy-MM-dd'),
+    blackoutDate: format(addDays(today, 14), 'yyyy-MM-dd'),
+  };
+}
+
+function buildPreviewConfig(input: {
+  availabilityMode: AvailabilityMode;
+  specificSlots: SpecificTimeSlot[];
+  startDate: string;
+  endDate: string;
+  weeklyAvailability: WeeklyAvailabilityDay[];
+  rollingWindowDays: number;
+  blackoutDays: BlackoutDay[];
+  studyTimezone: SelectOption;
+  previewTimezone: SelectOption;
+  bufferMinutes: number;
+  minimumNoticeHours: number;
+  startIncrement: SelectOption;
+  bookingWindowDays: number;
+}): ParticipantBookingConfig {
+  return buildParticipantBookingConfig({
+    studyTitle: 'New Moderated Study',
+    availabilityMode: input.availabilityMode,
+    specificSlots: input.specificSlots,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    weeklyAvailability: input.weeklyAvailability,
+    rollingWindowDays: input.rollingWindowDays,
+    blackoutDays: input.blackoutDays,
+    studyTimezone: input.studyTimezone.value,
+    participantTimezone: input.previewTimezone.value,
+    bufferMinutes: input.bufferMinutes,
+    minimumNoticeHours: input.minimumNoticeHours,
+    startIncrementMinutes: Number(input.startIncrement.value),
+    bookingWindowDays: input.bookingWindowDays,
+  });
+}
+
 function getAvailabilityModeIcon(mode: AvailabilityMode) {
   const modeIcons: Record<AvailabilityMode, ReactNode> = {
     'specific-slots': <span className="text-[10px] font-bold">SLOT</span>,
@@ -120,16 +170,27 @@ function getAvailabilityModeIcon(mode: AvailabilityMode) {
 }
 
 export function SchedulingStep({ onBack, onSaveDraft, onContinue }: SchedulingStepProps) {
+  const defaultDates = getDefaultSchedulingDates();
   const [availabilityMode, setAvailabilityMode] = useState<AvailabilityMode>('fixed-range');
-  const [specificSlots, setSpecificSlots] = useState<SpecificTimeSlot[]>(INITIAL_SPECIFIC_SLOTS);
-  const [startDate, setStartDate] = useState('2026-05-18');
-  const [endDate, setEndDate] = useState('2026-06-05');
+  const [specificSlots, setSpecificSlots] = useState<SpecificTimeSlot[]>(() =>
+    INITIAL_SPECIFIC_SLOTS.map((slot, index) => ({
+      ...slot,
+      date: format(addDays(startOfDay(new Date()), index * 2 + 2), 'yyyy-MM-dd'),
+    }))
+  );
+  const [startDate, setStartDate] = useState(defaultDates.startDate);
+  const [endDate, setEndDate] = useState(defaultDates.endDate);
   const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailabilityDay[]>(
     DEFAULT_WEEKLY_AVAILABILITY
   );
   const [rollingWindowDays, setRollingWindowDays] = useState(21);
-  const [blackoutDays, setBlackoutDays] = useState<BlackoutDay[]>(BLACKOUT_DAYS);
-  const [newBlackoutDate, setNewBlackoutDate] = useState('2026-06-09');
+  const [blackoutDays, setBlackoutDays] = useState<BlackoutDay[]>(() =>
+    BLACKOUT_DAYS.map((day, index) => ({
+      ...day,
+      date: format(addDays(startOfDay(new Date()), 10 + index * 5), 'yyyy-MM-dd'),
+    }))
+  );
+  const [newBlackoutDate, setNewBlackoutDate] = useState(defaultDates.blackoutDate);
   const [studyTimezone, setStudyTimezone] = useState<SelectOption>(TIMEZONE_OPTIONS[0]);
   const [previewTimezone, setPreviewTimezone] = useState<SelectOption>(TIMEZONE_OPTIONS[1]);
   const [bufferMinutes, setBufferMinutes] = useState(15);
@@ -139,7 +200,60 @@ export function SchedulingStep({ onBack, onSaveDraft, onContinue }: SchedulingSt
   const [moderatorAssignment, setModeratorAssignment] = useState<SelectOption>(
     MODERATOR_ASSIGNMENT_OPTIONS[0]
   );
-  const [selectedPreviewDateId, setSelectedPreviewDateId] = useState(PREVIEW_DATES[0].id);
+  const [selectedPreviewDateId, setSelectedPreviewDateId] = useState<string | null>(null);
+
+  const previewConfig = useMemo(
+    () =>
+      buildPreviewConfig({
+        availabilityMode,
+        specificSlots,
+        startDate,
+        endDate,
+        weeklyAvailability,
+        rollingWindowDays,
+        blackoutDays,
+        studyTimezone,
+        previewTimezone,
+        bufferMinutes,
+        minimumNoticeHours,
+        startIncrement,
+        bookingWindowDays,
+      }),
+    [
+      availabilityMode,
+      specificSlots,
+      startDate,
+      endDate,
+      weeklyAvailability,
+      rollingWindowDays,
+      blackoutDays,
+      studyTimezone,
+      previewTimezone,
+      bufferMinutes,
+      minimumNoticeHours,
+      startIncrement,
+      bookingWindowDays,
+    ]
+  );
+
+  const previewDates = useMemo(() => computeAvailableDates(previewConfig), [previewConfig]);
+  const selectedPreviewDate =
+    previewDates.find((date) => date.id === selectedPreviewDateId) ?? previewDates[0] ?? null;
+  const previewTimeSlots = useMemo(
+    () =>
+      selectedPreviewDate
+        ? computeTimeSlotsForDate(previewConfig, selectedPreviewDate.date)
+        : [],
+    [previewConfig, selectedPreviewDate]
+  );
+  const selectedPreviewDateLabel = selectedPreviewDate
+    ? format(parseISO(selectedPreviewDate.date), 'EEEE, MMM d')
+    : 'No dates available';
+
+  function openParticipantBookingPreview() {
+    saveParticipantBookingPreview(previewConfig);
+    window.open('/participant/book', '_blank', 'noopener,noreferrer');
+  }
 
   const enabledDays = weeklyAvailability.filter((day) => day.enabled);
   const estimatedSessionsPerWeek = useMemo(
@@ -167,8 +281,6 @@ export function SchedulingStep({ onBack, onSaveDraft, onContinue }: SchedulingSt
       ? `${Math.max(Math.ceil(24 / estimatedSessionsPerDay), 1)} active interview days`
       : 'Add availability to estimate pace';
   const health = getAvailabilityHealth(enabledDays.length, estimatedTotalSessions);
-  const selectedPreviewDate = PREVIEW_DATES.find((date) => date.id === selectedPreviewDateId) ?? PREVIEW_DATES[0];
-  const selectedPreviewDateLabel = `${selectedPreviewDate.weekday}, ${selectedPreviewDate.month} ${selectedPreviewDate.day}`;
 
   function updateWeeklyDay(dayId: string, updates: Partial<WeeklyAvailabilityDay>) {
     setWeeklyAvailability((currentDays) =>
@@ -181,7 +293,7 @@ export function SchedulingStep({ onBack, onSaveDraft, onContinue }: SchedulingSt
       ...currentSlots,
       {
         id: `slot-${Date.now()}`,
-        date: '2026-05-23',
+        date: format(addDays(startOfDay(new Date()), 5), 'yyyy-MM-dd'),
         startTime: '10:00',
         endTime: '12:00',
       },
@@ -513,26 +625,38 @@ export function SchedulingStep({ onBack, onSaveDraft, onContinue }: SchedulingSt
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Available interview days
               </p>
-              <div className="grid grid-cols-5 gap-2">
-                {PREVIEW_DATES.map((date) => (
-                  <PreviewDateButton
-                    key={date.id}
-                    date={date}
-                    isSelected={date.id === selectedPreviewDateId}
-                    onClick={() => setSelectedPreviewDateId(date.id)}
-                  />
-                ))}
-              </div>
+              {previewDates.length === 0 ? (
+                <p className="text-sm text-gray-500">No bookable dates with the current configuration.</p>
+              ) : (
+                <div className="grid grid-cols-5 gap-2">
+                  {previewDates.slice(0, 5).map((date) => (
+                    <PreviewDateButton
+                      key={date.id}
+                      date={date}
+                      isSelected={date.id === selectedPreviewDate?.id}
+                      onClick={() => setSelectedPreviewDateId(date.id)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
             <div className="rounded-lg bg-white p-3">
               <p className="text-sm font-semibold text-gray-900">{selectedPreviewDateLabel}</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Pill tone="blue">10:00 AM</Pill>
-                <Pill tone="blue">11:30 AM</Pill>
-                <Pill tone="blue">2:00 PM</Pill>
+                {previewTimeSlots.length === 0 ? (
+                  <p className="text-xs text-gray-500">No slots available for this date.</p>
+                ) : (
+                  previewTimeSlots.slice(0, 4).map((slot) => (
+                    <Pill key={slot.id} tone="blue">
+                      {slot.label}
+                    </Pill>
+                  ))
+                )}
               </div>
             </div>
-            <WuButton className="w-full">Book Interview</WuButton>
+            <WuButton className="w-full" variant="secondary" onClick={openParticipantBookingPreview}>
+              Open participant booking page
+            </WuButton>
           </div>
         </section>
 
@@ -629,7 +753,7 @@ function PreviewDateButton({
   isSelected,
   onClick,
 }: {
-  date: PreviewDate;
+  date: BookableDate;
   isSelected: boolean;
   onClick: () => void;
 }) {
