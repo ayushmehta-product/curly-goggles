@@ -20,6 +20,11 @@ const NAV_ITEMS = [
     icon: <span className="wm-forum" />,
   },
   {
+    label: 'Focus Groups',
+    href: '/focus-group-studies',
+    icon: <span className="wm-groups" />,
+  },
+  {
     label: 'Projects',
     href: '/projects',
     icon: <span className="wm-folder-data" />,
