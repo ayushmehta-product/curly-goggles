@@ -5,22 +5,82 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { PageHeader } from '@/components/ui/PageHeader';
-import {
-  BasicsStep,
-  DEFAULT_BASICS_FORM,
-  type BasicsFormState,
-} from '@/components/focus-group-studies/create/BasicsStep';
-import { AudienceStep } from '@/components/focus-group-studies/create/AudienceStep';
-import { ScriptStep } from '@/components/focus-group-studies/create/ScriptStep';
-import { PostSessionStep } from '@/components/focus-group-studies/create/PostSessionStep';
+import { StudySetupStep } from '@/components/focus-group-studies/create/StudySetupStep';
+import { TeamStep } from '@/components/idi-studies/create/TeamStep';
 import {
   SchedulingStep,
   getDefaultSchedulingSnapshot,
   type SchedulingSnapshot,
 } from '@/components/focus-group-studies/create/SchedulingStep';
+import { DiscussionGuideStep } from '@/components/focus-group-studies/create/DiscussionGuideStep';
+import { PostSessionStep } from '@/components/focus-group-studies/create/PostSessionStep';
 import { ReviewStep } from '@/components/focus-group-studies/create/ReviewStep';
+import {
+  DEFAULT_BASICS_FORM,
+  type BasicsFormState,
+} from '@/components/focus-group-studies/create/BasicsStep';
 
-const WIZARD_STEPS = ['Basics', 'Audience', 'Script', 'Post-session', 'Scheduling', 'Review'];
+const WIZARD_STEPS = [
+  'Study Setup',
+  'Team',
+  'Scheduling',
+  'Discussion Guide',
+  'Post-Session',
+  'Review & Publish',
+];
+
+const STEP_PARAM_TO_NUMBER: Record<string, number> = {
+  team: 2,
+  scheduling: 3,
+  'discussion-guide': 4,
+  'post-session': 5,
+  review: 6,
+};
+
+const STEP_HEADERS: Record<number, { title: string; description: string }> = {
+  1: {
+    title: 'Create a New Focus Group',
+    description: 'Set up the core configuration for this focus group.',
+  },
+  2: {
+    title: 'Study Team',
+    description: 'Assign moderators and observers for this focus group session.',
+  },
+  3: {
+    title: 'Scheduling',
+    description: 'Configure how the single shared session gets scheduled.',
+  },
+  4: {
+    title: 'Discussion Guide',
+    description: 'Build the discussion guide moderators will follow live.',
+  },
+  5: {
+    title: 'Post-Session',
+    description: 'Collect quick feedback and set the end-of-session experience.',
+  },
+  6: {
+    title: 'Review & Publish',
+    description: 'Confirm this focus group is ready to launch.',
+  },
+};
+
+function getStepFromParam(param: string | null) {
+  if (!param) return 1;
+  return STEP_PARAM_TO_NUMBER[param] ?? 1;
+}
+
+function getHrefForStep(step: number) {
+  const paramMap: Record<number, string | null> = {
+    1: null,
+    2: 'team',
+    3: 'scheduling',
+    4: 'discussion-guide',
+    5: 'post-session',
+    6: 'review',
+  };
+  const param = paramMap[step];
+  return param ? `/focus-group-studies/create?step=${param}` : '/focus-group-studies/create';
+}
 
 function StepperProgress({ currentStep }: { currentStep: number }) {
   return (
@@ -80,64 +140,11 @@ function StepperProgress({ currentStep }: { currentStep: number }) {
   );
 }
 
-const STEP_PARAM_TO_NUMBER: Record<string, number> = {
-  audience: 2,
-  script: 3,
-  'post-session': 4,
-  scheduling: 5,
-  review: 6,
-};
-
-const STEP_NUMBER_TO_PARAM: Record<number, string | null> = {
-  1: null,
-  2: 'audience',
-  3: 'script',
-  4: 'post-session',
-  5: 'scheduling',
-  6: 'review',
-};
-
-const STEP_HEADERS: Record<number, { title: string; description: string }> = {
-  1: {
-    title: 'Create a New Focus Group',
-    description: 'Set up the core configuration for this focus group.',
-  },
-  2: {
-    title: 'Audience',
-    description: 'Configure recruitment, screeners, and confidentiality for participants.',
-  },
-  3: {
-    title: 'Script',
-    description: 'Build the discussion guide moderators will follow live.',
-  },
-  4: {
-    title: 'Post-Session',
-    description: 'Collect quick feedback and set the end-of-session experience.',
-  },
-  5: {
-    title: 'Scheduling',
-    description: 'Configure how the single shared session gets scheduled.',
-  },
-  6: {
-    title: 'Review & Publish',
-    description: 'Confirm this focus group is ready to launch.',
-  },
-};
-
-function getStepFromParam(param: string | null) {
-  if (!param) return 1;
-  return STEP_PARAM_TO_NUMBER[param] ?? 1;
-}
-
-function getHrefForStep(step: number) {
-  const param = STEP_NUMBER_TO_PARAM[step];
-  return param ? `/focus-group-studies/create?step=${param}` : '/focus-group-studies/create';
-}
-
 export default function CreateFocusGroupPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useWuShowToast();
+
   const currentStep = getStepFromParam(searchParams.get('step'));
   const pageHeader = STEP_HEADERS[currentStep];
 
@@ -170,29 +177,29 @@ export default function CreateFocusGroupPage() {
       <StepperProgress currentStep={currentStep} />
 
       {currentStep === 2 ? (
-        <AudienceStep
+        <TeamStep
           onBack={() => goToStep(1)}
-          onSaveDraft={() => handleSaveDraft('Audience')}
+          onSaveDraft={() => handleSaveDraft('Team')}
           onContinue={() => goToStep(3)}
         />
       ) : currentStep === 3 ? (
-        <ScriptStep
-          onBack={() => goToStep(2)}
-          onSaveDraft={() => handleSaveDraft('Script')}
-          onContinue={() => goToStep(4)}
-        />
-      ) : currentStep === 4 ? (
-        <PostSessionStep
-          onBack={() => goToStep(3)}
-          onSaveDraft={() => handleSaveDraft('Post-session')}
-          onContinue={() => goToStep(5)}
-        />
-      ) : currentStep === 5 ? (
         <SchedulingStep
           quorumTarget={basics.targetParticipants}
           onSchedulingChange={setScheduling}
-          onBack={() => goToStep(4)}
+          onBack={() => goToStep(2)}
           onSaveDraft={() => handleSaveDraft('Scheduling')}
+          onContinue={() => goToStep(4)}
+        />
+      ) : currentStep === 4 ? (
+        <DiscussionGuideStep
+          onBack={() => goToStep(3)}
+          onSaveDraft={() => handleSaveDraft('Discussion Guide')}
+          onContinue={() => goToStep(5)}
+        />
+      ) : currentStep === 5 ? (
+        <PostSessionStep
+          onBack={() => goToStep(4)}
+          onSaveDraft={() => handleSaveDraft('Post-session')}
           onContinue={() => goToStep(6)}
         />
       ) : currentStep === 6 ? (
@@ -204,11 +211,9 @@ export default function CreateFocusGroupPage() {
           onPublish={handlePublish}
         />
       ) : (
-        <BasicsStep
-          value={basics}
-          onChange={setBasics}
+        <StudySetupStep
           onCancel={() => router.push('/focus-group-studies')}
-          onSaveDraft={() => handleSaveDraft('Basics')}
+          onSaveDraft={() => handleSaveDraft('Study Setup')}
           onContinue={() => goToStep(2)}
         />
       )}

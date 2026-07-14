@@ -5,13 +5,6 @@ import dynamic from 'next/dynamic';
 import { addDays, format, startOfDay } from 'date-fns';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { SelectableCard } from '@/components/ui/SelectableCard';
-import {
-  INITIAL_MODERATOR_IDS,
-  INITIAL_OBSERVER_IDS,
-  MOCK_MODERATORS,
-  MOCK_OBSERVERS,
-  type StudyTeamMember,
-} from '@/data/mock-study-team';
 import type { CandidateSlot } from '@/data/mock-focus-group-scheduling';
 
 const WuButton = dynamic(
@@ -110,148 +103,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Moderators / Observers — same assignment pattern used in the IDI Team step.
-// ---------------------------------------------------------------------------
-
-function matchesSearch(member: StudyTeamMember, query: string) {
-  const normalizedQuery = query.trim().toLowerCase();
-  if (!normalizedQuery) return true;
-  return [member.fullName, member.email].join(' ').toLowerCase().includes(normalizedQuery);
-}
-
-function TeamAvatar({ member }: { member: StudyTeamMember }) {
-  return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">
-      {member.initials}
-    </span>
-  );
-}
-
-function TeamTypeaheadSearch({
-  label,
-  placeholder,
-  query,
-  onQueryChange,
-  results,
-  emptyMessage,
-  onAdd,
-}: {
-  label: string;
-  placeholder: string;
-  query: string;
-  onQueryChange: (query: string) => void;
-  results: StudyTeamMember[];
-  emptyMessage: string;
-  onAdd: (member: StudyTeamMember) => void;
-}) {
-  const showDropdown = query.trim().length > 0;
-
-  return (
-    <div className="relative">
-      <WuInput
-        Label={label}
-        Icon={<span className="wm-search" />}
-        iconPosition="left"
-        variant="outlined"
-        placeholder={placeholder}
-        value={query}
-        onChange={(event) => onQueryChange(event.target.value)}
-      />
-      {showDropdown && (
-        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-          {results.length === 0 ? (
-            <div className="px-3 py-3 text-sm text-gray-500">{emptyMessage}</div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {results.slice(0, 5).map((member) => (
-                <div key={member.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2.5">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <TeamAvatar member={member} />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-gray-900">{member.fullName}</p>
-                      <p className="truncate text-xs text-gray-500">{member.email}</p>
-                    </div>
-                  </div>
-                  <WuButton size="sm" variant="secondary" onClick={() => onAdd(member)}>
-                    Add
-                  </WuButton>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AssignedMemberRow({ member, onRemove }: { member: StudyTeamMember; onRemove: (member: StudyTeamMember) => void }) {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-center">
-        <div className="flex min-w-0 items-start gap-3">
-          <TeamAvatar member={member} />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-gray-900">{member.fullName}</p>
-            <p className="mt-0.5 truncate text-xs text-gray-500">{member.email}</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-2">
-          <WuButton variant="link" color="error" onClick={() => onRemove(member)}>
-            Remove
-          </WuButton>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TeamAssignmentBlock({
-  label,
-  searchPlaceholder,
-  query,
-  onQueryChange,
-  results,
-  emptyMessage,
-  assigned,
-  onAdd,
-  onRemove,
-}: {
-  label: string;
-  searchPlaceholder: string;
-  query: string;
-  onQueryChange: (query: string) => void;
-  results: StudyTeamMember[];
-  emptyMessage: string;
-  assigned: StudyTeamMember[];
-  onAdd: (member: StudyTeamMember) => void;
-  onRemove: (member: StudyTeamMember) => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <TeamTypeaheadSearch
-        label={label}
-        placeholder={searchPlaceholder}
-        query={query}
-        onQueryChange={onQueryChange}
-        results={results}
-        emptyMessage={emptyMessage}
-        onAdd={onAdd}
-      />
-      {assigned.length === 0 ? (
-        <p className="text-xs text-gray-500">None assigned yet.</p>
-      ) : (
-        <div className="space-y-2">
-          {assigned.map((member) => (
-            <AssignedMemberRow key={member.id} member={member} onRemove={onRemove} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Poll slots — repeatable field row, same pattern as the IDI Scheduling
 // step's "specific slots" editor (Availability Configuration section).
 // ---------------------------------------------------------------------------
@@ -337,11 +188,6 @@ export function SchedulingStep({
   const { showToast } = useWuShowToast();
   const defaults = useMemo(() => getDefaultDates(), []);
 
-  const [moderatorIds, setModeratorIds] = useState(INITIAL_MODERATOR_IDS.slice(0, 1));
-  const [observerIds, setObserverIds] = useState(INITIAL_OBSERVER_IDS.slice(0, 1));
-  const [moderatorSearch, setModeratorSearch] = useState('');
-  const [observerSearch, setObserverSearch] = useState('');
-
   const [mode, setMode] = useState<SchedulingMode>('poll');
   const [requireRsvp, setRequireRsvp] = useState(true);
   const [fixedDate, setFixedDate] = useState(defaults.fixedDate);
@@ -360,29 +206,6 @@ export function SchedulingStep({
   const [draftFirstName, setDraftFirstName] = useState('');
   const [draftLastName, setDraftLastName] = useState('');
   const [draftEmail, setDraftEmail] = useState('');
-
-  const assignedModerators = useMemo(
-    () => MOCK_MODERATORS.filter((moderator) => moderatorIds.includes(moderator.id)),
-    [moderatorIds]
-  );
-  const assignedObservers = useMemo(
-    () => MOCK_OBSERVERS.filter((observer) => observerIds.includes(observer.id)),
-    [observerIds]
-  );
-  const moderatorResults = useMemo(
-    () =>
-      MOCK_MODERATORS.filter(
-        (moderator) => !moderatorIds.includes(moderator.id) && matchesSearch(moderator, moderatorSearch)
-      ),
-    [moderatorIds, moderatorSearch]
-  );
-  const observerResults = useMemo(
-    () =>
-      MOCK_OBSERVERS.filter(
-        (observer) => !observerIds.includes(observer.id) && matchesSearch(observer, observerSearch)
-      ),
-    [observerIds, observerSearch]
-  );
 
   function addSlot() {
     setPollSlots((current) => [
@@ -449,43 +272,6 @@ export function SchedulingStep({
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-4">
-        <section className="rounded-lg border border-gray-200 bg-white">
-          <SectionHeader
-            title="Moderators & Observers"
-            subtitle="Assign who runs the group and who can silently watch."
-          />
-          <div className="grid grid-cols-1 gap-5 p-5 md:grid-cols-2">
-            <TeamAssignmentBlock
-              label="Add moderator"
-              searchPlaceholder="Start typing a researcher name or email"
-              query={moderatorSearch}
-              onQueryChange={setModeratorSearch}
-              results={moderatorResults}
-              emptyMessage="No matching moderators found."
-              assigned={assignedModerators}
-              onAdd={(member) => {
-                setModeratorIds((current) => [...current, member.id]);
-                setModeratorSearch('');
-              }}
-              onRemove={(member) => setModeratorIds((current) => current.filter((id) => id !== member.id))}
-            />
-            <TeamAssignmentBlock
-              label="Add observer"
-              searchPlaceholder="Start typing a stakeholder name or email"
-              query={observerSearch}
-              onQueryChange={setObserverSearch}
-              results={observerResults}
-              emptyMessage="No matching observers found."
-              assigned={assignedObservers}
-              onAdd={(member) => {
-                setObserverIds((current) => [...current, member.id]);
-                setObserverSearch('');
-              }}
-              onRemove={(member) => setObserverIds((current) => current.filter((id) => id !== member.id))}
-            />
-          </div>
-        </section>
-
         <section className="rounded-lg border border-gray-200 bg-white">
           <SectionHeader
             title="Scheduling Mode"
@@ -711,8 +497,6 @@ export function SchedulingStep({
             ) : (
               <SummaryRow label="Candidate slots" value={String(pollSlots.length)} />
             )}
-            <SummaryRow label="Moderators" value={String(assignedModerators.length)} />
-            <SummaryRow label="Observers" value={String(assignedObservers.length)} />
             <SummaryRow label="Participants invited" value={String(participants.length)} />
           </div>
         </section>

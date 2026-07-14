@@ -8,6 +8,7 @@ import { StudySetupStep } from '@/components/idi-studies/create/StudySetupStep';
 import { TeamStep } from '@/components/idi-studies/create/TeamStep';
 import { SchedulingStep } from '@/components/idi-studies/create/SchedulingStep';
 import { DiscussionGuideStep } from '@/components/idi-studies/create/DiscussionGuideStep';
+import { PostSessionStep } from '@/components/focus-group-studies/create/PostSessionStep';
 import { ReviewPublishStep } from '@/components/idi-studies/create/ReviewPublishStep';
 
 const WIZARD_STEPS = [
@@ -15,6 +16,7 @@ const WIZARD_STEPS = [
   'Team',
   'Scheduling',
   'Discussion Guide',
+  'Post-Session',
   'Review & Publish',
 ];
 
@@ -83,39 +85,46 @@ export default function CreateStudyPlaceholderPage() {
   const currentStepParam = searchParams.get('step');
   const currentStep =
     currentStepParam === 'review'
-      ? 5
-      : currentStepParam === 'discussion-guide'
-        ? 4
-        : currentStepParam === 'scheduling'
-          ? 3
-          : currentStepParam === 'team'
-            ? 2
-            : 1;
+      ? 6
+      : currentStepParam === 'post-session'
+        ? 5
+        : currentStepParam === 'discussion-guide'
+          ? 4
+          : currentStepParam === 'scheduling'
+            ? 3
+            : currentStepParam === 'team'
+              ? 2
+              : 1;
   const pageHeader =
-    currentStep === 5
+    currentStep === 6
       ? {
           title: 'Review & Publish',
           description: 'Confirm this moderated study is operationally ready to launch.',
         }
-      : currentStep === 4
-      ? {
-          title: 'Discussion Guide',
-          description: 'Build a structured interview guide for live moderated sessions.',
-        }
-      : currentStep === 3
+      : currentStep === 5
         ? {
-            title: 'Scheduling',
-            description: 'Configure participant booking availability for moderated interviews.',
+            title: 'Post-Session',
+            description: 'Collect quick feedback and set the end-of-session experience.',
           }
-        : currentStep === 2
-      ? {
-          title: 'Study Team',
-          description: 'Assign moderators and observers for this moderated study.',
-        }
-        : {
-            title: 'Create Moderated Study',
-            description: 'Set up the core configuration for your moderated research study.',
-          };
+        : currentStep === 4
+          ? {
+              title: 'Discussion Guide',
+              description: 'Build a structured interview guide for live moderated sessions.',
+            }
+          : currentStep === 3
+            ? {
+                title: 'Scheduling',
+                description: 'Configure participant booking availability for moderated interviews.',
+              }
+            : currentStep === 2
+              ? {
+                  title: 'Study Team',
+                  description: 'Assign moderators and observers for this moderated study.',
+                }
+              : {
+                  title: 'Create Moderated Study',
+                  description: 'Set up the core configuration for your moderated research study.',
+                };
 
   function handleSaveDraft() {
     showToast({ message: 'Moderated study draft saved', variant: 'success' });
@@ -131,6 +140,10 @@ export default function CreateStudyPlaceholderPage() {
 
   function handleSaveDiscussionGuideDraft() {
     showToast({ message: 'Discussion guide draft saved', variant: 'success' });
+  }
+
+  function handleSavePostSessionDraft() {
+    showToast({ message: 'Post-session draft saved', variant: 'success' });
   }
 
   function handleSaveReviewDraft() {
@@ -170,11 +183,17 @@ export default function CreateStudyPlaceholderPage() {
         <DiscussionGuideStep
           onBack={() => router.push('/idi-studies/create?step=scheduling')}
           onSaveDraft={handleSaveDiscussionGuideDraft}
-          onContinue={() => router.push('/idi-studies/create?step=review')}
+          onContinue={() => router.push('/idi-studies/create?step=post-session')}
         />
       ) : currentStep === 5 ? (
-        <ReviewPublishStep
+        <PostSessionStep
           onBack={() => router.push('/idi-studies/create?step=discussion-guide')}
+          onSaveDraft={handleSavePostSessionDraft}
+          onContinue={() => router.push('/idi-studies/create?step=review')}
+        />
+      ) : currentStep === 6 ? (
+        <ReviewPublishStep
+          onBack={() => router.push('/idi-studies/create?step=post-session')}
           onSaveDraft={handleSaveReviewDraft}
           onPublish={handlePublishStudy}
         />
