@@ -3,13 +3,9 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
 import type { IWuTableColumnDef } from '@npm-questionpro/wick-ui-lib';
-import {
-  FOCUS_GROUP_SCHEDULING_STATUS_LABELS,
-  FOCUS_GROUP_STATUS_LABELS,
-  type FocusGroup,
-  type FocusGroupStatus,
-} from '@/data/mock-focus-groups';
+import { FOCUS_GROUP_STATUS_LABELS, type FocusGroup, type FocusGroupStatus } from '@/data/mock-focus-groups';
 import { truncate } from '@/data/mock-utils';
 
 const WuTable = dynamic(
@@ -54,13 +50,16 @@ function StatusBadge({ status }: { status: FocusGroupStatus }) {
   );
 }
 
-function SchedulingModeCell({ focusGroup }: { focusGroup: FocusGroup }) {
+function SessionDateCell({ focusGroup }: { focusGroup: FocusGroup }) {
+  if (!focusGroup.sessionAt) {
+    return <p className="text-sm text-gray-400">Not scheduled</p>;
+  }
+
+  const sessionDate = new Date(focusGroup.sessionAt);
   return (
     <div>
-      <p className="text-sm text-gray-700">{focusGroup.schedulingMode === 'fixed' ? 'Fixed time' : 'Poll'}</p>
-      <p className="text-xs text-gray-500">
-        {FOCUS_GROUP_SCHEDULING_STATUS_LABELS[focusGroup.schedulingStatus]}
-      </p>
+      <p className="text-sm text-gray-700">{format(sessionDate, 'MMM d, yyyy')}</p>
+      <p className="text-xs text-gray-500">{format(sessionDate, 'h:mm a')}</p>
     </div>
   );
 }
@@ -120,7 +119,7 @@ function LoadingTableSkeleton() {
     <div className="overflow-x-auto">
       <div className="min-w-[900px] overflow-hidden rounded-lg border border-gray-200 bg-white">
         <div className="grid grid-cols-[minmax(320px,1.8fr)_120px_140px_140px_170px_80px] gap-4 border-b border-gray-100 bg-gray-50 px-4 py-3">
-          {['Focus Group', 'Status', 'Scheduling', 'Participants', 'Created By', 'Actions'].map((label) => (
+          {['Focus Group', 'Status', 'Session Date', 'Participants', 'Created By', 'Actions'].map((label) => (
             <div key={label} className="text-xs font-medium text-gray-500">
               {label}
             </div>
@@ -184,10 +183,10 @@ export function FocusGroupsTable({
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
-      accessorKey: 'schedulingMode',
-      header: 'Scheduling',
+      accessorKey: 'sessionAt',
+      header: 'Session Date',
       size: 150,
-      cell: ({ row }) => <SchedulingModeCell focusGroup={row.original} />,
+      cell: ({ row }) => <SessionDateCell focusGroup={row.original} />,
     },
     {
       accessorKey: 'participantsConfirmed',

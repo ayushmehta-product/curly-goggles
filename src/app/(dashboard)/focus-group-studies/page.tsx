@@ -60,11 +60,9 @@ export default function FocusGroupStudiesPage() {
   }, []);
 
   const stats: StudyStat[] = useMemo(() => {
-    const awaitingResponses = focusGroups.filter(
-      (focusGroup) => focusGroup.schedulingStatus === 'awaiting-responses'
-    ).length;
+    const schedulingCount = focusGroups.filter((focusGroup) => focusGroup.status === 'scheduling').length;
     const confirmedSessions = focusGroups.filter((focusGroup) => focusGroup.status === 'confirmed').length;
-    const pollMode = focusGroups.filter((focusGroup) => focusGroup.schedulingMode === 'poll').length;
+    const completedCount = focusGroups.filter((focusGroup) => focusGroup.status === 'completed').length;
     const draftCount = focusGroups.filter((focusGroup) => focusGroup.status === 'draft').length;
 
     return [
@@ -75,22 +73,22 @@ export default function FocusGroupStudiesPage() {
         icon: 'wm-groups',
       },
       {
-        label: 'Awaiting Responses',
-        value: awaitingResponses,
-        helper: 'Waiting on participant confirmations or votes',
-        icon: 'wm-how-to-vote',
+        label: 'Awaiting Acknowledgment',
+        value: schedulingCount,
+        helper: 'Waiting on participant acknowledgments',
+        icon: 'wm-mark-email-unread',
       },
       {
         label: 'Confirmed Sessions',
         value: confirmedSessions,
-        helper: 'Locked to a single date and time',
+        helper: 'Enough participants have acknowledged',
         icon: 'wm-event-available',
       },
       {
-        label: 'Poll-Scheduled Groups',
-        value: pollMode,
-        helper: 'Using candidate slot voting',
-        icon: 'wm-poll',
+        label: 'Completed Sessions',
+        value: completedCount,
+        helper: 'Session has already run',
+        icon: 'wm-task-alt',
       },
     ];
   }, [focusGroups]);
@@ -113,7 +111,6 @@ export default function FocusGroupStudiesPage() {
       id: `fg-${Date.now()}`,
       title: `Copy of ${focusGroup.title}`,
       status: 'draft',
-      schedulingStatus: 'proposing',
       sessionAt: null,
       participantsConfirmed: 0,
       participantsTotal: 0,

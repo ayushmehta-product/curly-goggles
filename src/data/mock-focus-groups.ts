@@ -1,9 +1,5 @@
 export type FocusGroupStatus = 'draft' | 'scheduling' | 'confirmed' | 'completed' | 'archived';
 
-export type FocusGroupSchedulingMode = 'fixed' | 'poll';
-
-export type FocusGroupSchedulingStatus = 'proposing' | 'awaiting-responses' | 'confirmed';
-
 export interface FocusGroupOwner {
   name: string;
   initials: string;
@@ -15,10 +11,9 @@ export interface FocusGroup {
   status: FocusGroupStatus;
   targetParticipants: number;
   sessionDurationMinutes: number;
-  schedulingMode: FocusGroupSchedulingMode;
-  schedulingStatus: FocusGroupSchedulingStatus;
-  /** Locked (or currently leading, if unlocked) session date/time. Null if not yet determined. */
+  /** The single decided session date/time. Null until a time has been set. */
   sessionAt: string | null;
+  /** Participants who have acknowledged the session time. */
   participantsConfirmed: number;
   participantsTotal: number;
   createdBy: FocusGroupOwner;
@@ -35,12 +30,6 @@ export const FOCUS_GROUP_STATUS_LABELS: Record<FocusGroupStatus, string> = {
   archived: 'Archived',
 };
 
-export const FOCUS_GROUP_SCHEDULING_STATUS_LABELS: Record<FocusGroupSchedulingStatus, string> = {
-  proposing: 'Proposing',
-  'awaiting-responses': 'Awaiting responses',
-  confirmed: 'Confirmed',
-};
-
 export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
   {
     id: 'fg-001',
@@ -48,8 +37,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'scheduling',
     targetParticipants: 5,
     sessionDurationMinutes: 60,
-    schedulingMode: 'poll',
-    schedulingStatus: 'awaiting-responses',
     sessionAt: '2026-07-16T15:00:00.000+05:30',
     participantsConfirmed: 3,
     participantsTotal: 8,
@@ -64,9 +51,7 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'confirmed',
     targetParticipants: 6,
     sessionDurationMinutes: 45,
-    schedulingMode: 'fixed',
-    schedulingStatus: 'confirmed',
-    sessionAt: '2026-07-14T18:30:00.000+05:30',
+    sessionAt: '2026-07-18T18:30:00.000+05:30',
     participantsConfirmed: 6,
     participantsTotal: 7,
     createdBy: { name: 'Elena Rodriguez', initials: 'ER' },
@@ -80,8 +65,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'draft',
     targetParticipants: 8,
     sessionDurationMinutes: 60,
-    schedulingMode: 'fixed',
-    schedulingStatus: 'proposing',
     sessionAt: null,
     participantsConfirmed: 0,
     participantsTotal: 0,
@@ -96,8 +79,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'completed',
     targetParticipants: 6,
     sessionDurationMinutes: 60,
-    schedulingMode: 'poll',
-    schedulingStatus: 'confirmed',
     sessionAt: '2026-06-18T16:00:00.000+05:30',
     participantsConfirmed: 6,
     participantsTotal: 9,
@@ -112,8 +93,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'scheduling',
     targetParticipants: 5,
     sessionDurationMinutes: 45,
-    schedulingMode: 'fixed',
-    schedulingStatus: 'awaiting-responses',
     sessionAt: '2026-07-20T13:00:00.000+05:30',
     participantsConfirmed: 2,
     participantsTotal: 6,
@@ -128,8 +107,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'archived',
     targetParticipants: 6,
     sessionDurationMinutes: 60,
-    schedulingMode: 'fixed',
-    schedulingStatus: 'confirmed',
     sessionAt: '2026-03-02T17:00:00.000+05:30',
     participantsConfirmed: 6,
     participantsTotal: 6,
@@ -145,8 +122,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'draft',
     targetParticipants: 7,
     sessionDurationMinutes: 90,
-    schedulingMode: 'poll',
-    schedulingStatus: 'proposing',
     sessionAt: null,
     participantsConfirmed: 0,
     participantsTotal: 0,
@@ -161,8 +136,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'completed',
     targetParticipants: 5,
     sessionDurationMinutes: 45,
-    schedulingMode: 'fixed',
-    schedulingStatus: 'confirmed',
     sessionAt: '2026-04-28T11:00:00.000+05:30',
     participantsConfirmed: 5,
     participantsTotal: 5,
@@ -177,8 +150,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'scheduling',
     targetParticipants: 6,
     sessionDurationMinutes: 60,
-    schedulingMode: 'poll',
-    schedulingStatus: 'awaiting-responses',
     sessionAt: '2026-07-17T10:00:00.000+05:30',
     participantsConfirmed: 1,
     participantsTotal: 8,
@@ -193,8 +164,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'scheduling',
     targetParticipants: 8,
     sessionDurationMinutes: 60,
-    schedulingMode: 'fixed',
-    schedulingStatus: 'proposing',
     sessionAt: '2026-07-22T14:00:00.000+05:30',
     participantsConfirmed: 0,
     participantsTotal: 3,
@@ -208,8 +177,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'completed',
     targetParticipants: 6,
     sessionDurationMinutes: 45,
-    schedulingMode: 'poll',
-    schedulingStatus: 'confirmed',
     sessionAt: '2026-04-18T09:00:00.000+05:30',
     participantsConfirmed: 6,
     participantsTotal: 8,
@@ -224,8 +191,6 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     status: 'archived',
     targetParticipants: 5,
     sessionDurationMinutes: 60,
-    schedulingMode: 'fixed',
-    schedulingStatus: 'confirmed',
     sessionAt: '2026-02-14T15:00:00.000+05:30',
     participantsConfirmed: 5,
     participantsTotal: 5,
