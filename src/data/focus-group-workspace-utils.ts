@@ -1,5 +1,9 @@
 import { addMinutes, format } from 'date-fns';
-import type { FocusGroupParticipant, FocusGroupWorkspace } from '@/data/mock-focus-group-scheduling';
+import type {
+  AttendanceStatus,
+  FocusGroupParticipant,
+  FocusGroupWorkspace,
+} from '@/data/mock-focus-group-scheduling';
 
 export type FocusGroupWorkspacePhase = 'scheduling' | 'ready' | 'live' | 'completed';
 
@@ -21,6 +25,33 @@ export function countInvitationsSent(participants: FocusGroupParticipant[]) {
 
 export function countAttended(participants: FocusGroupParticipant[]) {
   return participants.filter((participant) => participant.attendanceStatus === 'attended').length;
+}
+
+export function countNoShow(participants: FocusGroupParticipant[]) {
+  return participants.filter((participant) => participant.attendanceStatus === 'no-show').length;
+}
+
+export function countAttendanceDeclined(participants: FocusGroupParticipant[]) {
+  return participants.filter((participant) => participant.attendanceStatus === 'declined').length;
+}
+
+function deriveAttendanceStatus(participant: FocusGroupParticipant): AttendanceStatus | null {
+  if (participant.acknowledgmentStatus === 'acknowledged') return 'attended';
+  if (participant.acknowledgmentStatus === 'declined') return 'declined';
+  if (participant.invitationStatus === 'sent') return 'no-show';
+  return null;
+}
+
+/** Marks the session completed and assigns attendance from acknowledgment/invitation state. */
+export function applyCompletedSessionState(workspace: FocusGroupWorkspace): FocusGroupWorkspace {
+  return {
+    ...workspace,
+    sessionStatus: 'completed',
+    participants: workspace.participants.map((participant) => ({
+      ...participant,
+      attendanceStatus: deriveAttendanceStatus(participant),
+    })),
+  };
 }
 
 /** Drives the status badge and which Overview layout (pre/live/post) to show. */
