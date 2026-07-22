@@ -4,12 +4,17 @@ import { useMemo, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { addMinutes, format, isAfter } from 'date-fns';
+import { format, isAfter } from 'date-fns';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
-import type { IWuSwitcherOptions } from '@npm-questionpro/wick-ui-lib';
 import { StudyWorkspaceTabs } from '@/components/idi-studies/StudyWorkspaceTabs';
+import {
+  ParticipantInterviewsTable,
+  type InterviewTab,
+} from '@/components/idi-studies/ParticipantInterviewsTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { OverviewCard, OverviewDetailRow } from '@/components/ui/OverviewCards';
+import { MOCK_IDI_STUDY_DETAILS } from '@/data/mock-idi-study-details';
 import {
   MOCK_IDI_STUDIES,
   STUDY_STATUS_LABELS,
@@ -18,34 +23,14 @@ import {
 import {
   MOCK_STUDY_OPERATIONAL_OVERVIEWS,
   type StudySession,
-  type StudySessionStatus,
 } from '@/data/mock-study-overview';
 
 const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
   { ssr: false }
 );
-const WuSwitcher = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSwitcher })),
-  { ssr: false }
-);
-const WuMenu = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuMenu })),
-  { ssr: false }
-);
-const WuMenuItem = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuMenuItem })),
-  { ssr: false }
-);
-const WuMenuSeparatorItem = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuMenuSeparatorItem })),
-  { ssr: false }
-);
 
 const OPERATION_NOW = new Date('2026-05-14T09:15:00.000+05:30');
-const INTERVIEW_DURATION_MINUTES = 45;
-
-type InterviewTab = 'upcoming' | 'completed';
 
 const STUDY_STATUS_STYLES: Record<StudyStatus, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -53,20 +38,6 @@ const STUDY_STATUS_STYLES: Record<StudyStatus, string> = {
   active: 'bg-green-50 text-green-700',
   completed: 'bg-blue-50 text-blue-700',
   archived: 'bg-amber-50 text-amber-700',
-};
-
-const SESSION_STATUS_STYLES: Record<StudySessionStatus, string> = {
-  confirmed: 'bg-green-50 text-green-700',
-  pending: 'bg-amber-50 text-amber-700',
-  completed: 'bg-blue-50 text-blue-700',
-  cancelled: 'bg-gray-100 text-gray-600',
-};
-
-const SESSION_STATUS_LABELS: Record<StudySessionStatus, string> = {
-  confirmed: 'Confirmed',
-  pending: 'Pending',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
 };
 
 function Pill({ children, className }: { children: ReactNode; className: string }) {
@@ -77,224 +48,13 @@ function StudyStatusBadge({ status }: { status: StudyStatus }) {
   return <Pill className={STUDY_STATUS_STYLES[status]}>{STUDY_STATUS_LABELS[status]}</Pill>;
 }
 
-function SessionStatusBadge({ status }: { status: StudySessionStatus }) {
-  return <Pill className={SESSION_STATUS_STYLES[status]}>{SESSION_STATUS_LABELS[status]}</Pill>;
-}
-
-function formatSessionTimeRange(startsAt: string) {
-  const starts = new Date(startsAt);
-  const ends = addMinutes(starts, INTERVIEW_DURATION_MINUTES);
-
-  return `${format(starts, 'HH:mm')} - ${format(ends, 'HH:mm')}`;
-}
-
-function formatSessionGroupDate(startsAt: string) {
-  return format(new Date(startsAt), 'EEEE, d MMMM yyyy');
-}
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
-
-function getSessionsForTab(sessions: StudySession[], activeTab: InterviewTab) {
-  return sessions
-    .filter((session) =>
-      activeTab === 'upcoming'
-        ? isAfter(new Date(session.startsAt), OPERATION_NOW) && session.status !== 'completed'
-        : session.status === 'completed'
-    )
-    .sort((first, second) => new Date(first.startsAt).getTime() - new Date(second.startsAt).getTime());
-}
-
-function groupSessionsByDate(sessions: StudySession[]) {
-  return sessions.reduce<Array<{ label: string; sessions: StudySession[] }>>((groups, session) => {
-    const label = formatSessionGroupDate(session.startsAt);
-    const existingGroup = groups.find((group) => group.label === label);
-
-    if (existingGroup) {
-      existingGroup.sessions.push(session);
-      return groups;
-    }
-
-    groups.push({ label, sessions: [session] });
-    return groups;
-  }, []);
-}
-
-function ParticipantInterviewCard({
-  session,
-  activeTab,
-  onJoin,
-  onCopyLink,
-  onReschedule,
-  onCancel,
-  onAssignObserver,
-}: {
-  session: StudySession;
-  activeTab: InterviewTab;
-  onJoin: (session: StudySession) => void;
-  onCopyLink: (session: StudySession) => void;
-  onReschedule: (session: StudySession) => void;
-  onCancel: (session: StudySession) => void;
-  onAssignObserver: (session: StudySession) => void;
-}) {
-  return (
-    <div className="flex min-h-[64px] items-center overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:border-blue-200 hover:shadow">
-      <div className="flex w-32 shrink-0 items-center justify-center self-stretch border-r border-gray-100 px-4 text-sm font-medium text-gray-800">
-        {formatSessionTimeRange(session.startsAt)}
-      </div>
-      <div className="flex min-w-0 flex-1 items-center gap-3 px-5 py-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-indigo-700">
-          {getInitials(session.participantName)}
-        </span>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-semibold text-gray-950">{session.participantName}</p>
-            <SessionStatusBadge status={session.status} />
-          </div>
-          <p className="mt-1 text-xs text-gray-500">Moderator: {session.moderator}</p>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-2 px-4">
-        <WuButton
-          size="sm"
-          variant="secondary"
-          Icon={<span className={activeTab === 'upcoming' ? 'wm-videocam' : 'wm-play-circle'} />}
-          onClick={() => onJoin(session)}
-          disabled={session.status === 'cancelled'}
-        >
-          {activeTab === 'upcoming' ? 'Join' : 'Go to session'}
-        </WuButton>
-        <button
-          type="button"
-          aria-label={`Copy link for ${session.participantName}`}
-          onClick={() => onCopyLink(session)}
-          className="rounded-md border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-        >
-          <span className="wm-link text-sm" />
-        </button>
-        <WuMenu
-          Trigger={
-            <button
-              type="button"
-              aria-label={`Actions for ${session.participantName}`}
-              className="rounded-md border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-            >
-              <span className="wm-more-horiz text-sm" />
-            </button>
-          }
-          align="end"
-        >
-          <WuMenuItem onSelect={() => onReschedule(session)}>Reschedule</WuMenuItem>
-          <WuMenuItem onSelect={() => onAssignObserver(session)}>Assign Observer</WuMenuItem>
-          <WuMenuSeparatorItem />
-          <WuMenuItem onSelect={() => onCancel(session)}>Cancel Session</WuMenuItem>
-        </WuMenu>
-      </div>
-    </div>
-  );
-}
-
-function ParticipantInterviews({
-  sessions,
-  activeTab,
-  onChangeTab,
-  onJoin,
-  onCopyLink,
-  onReschedule,
-  onCancel,
-  onAssignObserver,
-}: {
-  sessions: StudySession[];
-  activeTab: InterviewTab;
-  onChangeTab: (tab: InterviewTab) => void;
-  onJoin: (session: StudySession) => void;
-  onCopyLink: (session: StudySession) => void;
-  onReschedule: (session: StudySession) => void;
-  onCancel: (session: StudySession) => void;
-  onAssignObserver: (session: StudySession) => void;
-}) {
-  const upcomingCount = getSessionsForTab(sessions, 'upcoming').length;
-  const completedCount = getSessionsForTab(sessions, 'completed').length;
-  const visibleSessions = getSessionsForTab(sessions, activeTab);
-  const groupedSessions = groupSessionsByDate(visibleSessions);
-
-  const tabItems: IWuSwitcherOptions<InterviewTab> = [
-    { value: 'upcoming', label: `Upcoming ${upcomingCount}` },
-    { value: 'completed', label: `Completed ${completedCount}` },
-  ];
-
-  return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-950">Participant interviews</h2>
-          <div className="mt-3 inline-flex" aria-label="Session state filter">
-            <WuSwitcher
-              options={tabItems}
-              value={activeTab}
-              onChange={(value) => onChangeTab(value as InterviewTab)}
-              type="tab"
-              size="md"
-            />
-          </div>
-        </div>
-        <WuButton size="sm" variant="secondary" Icon={<span className="wm-bar-chart" />} onClick={() => undefined}>
-          Recruitment stats
-        </WuButton>
-      </div>
-
-      <div>
-        {/* <h3 className="text-lg font-semibold text-gray-950">
-          {activeTab === 'upcoming' ? 'Upcoming interviews' : 'Completed interviews'}
-        </h3> */}
-        {groupedSessions.length === 0 ? (
-          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-8">
-            <EmptyState
-              icon="wm-calendar"
-              title={activeTab === 'upcoming' ? 'No upcoming interviews' : 'No completed interviews'}
-              description="Participant interviews will appear here as sessions are scheduled and completed."
-            />
-          </div>
-        ) : (
-          <div className="mt-5 space-y-7">
-            {groupedSessions.map((group) => (
-              <div key={group.label}>
-                <p className="mb-4 text-sm font-semibold text-gray-500">{group.label}</p>
-                <div className="space-y-3">
-                  {group.sessions.map((session) => (
-                    <ParticipantInterviewCard
-                      key={session.id}
-                      session={session}
-                      activeTab={activeTab}
-                      onJoin={onJoin}
-                      onCopyLink={onCopyLink}
-                      onReschedule={onReschedule}
-                      onCancel={onCancel}
-                      onAssignObserver={onAssignObserver}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
 export default function StudyOverviewPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { showToast } = useWuShowToast();
   const study = MOCK_IDI_STUDIES.find((item) => item.id === id);
   const overview = MOCK_STUDY_OPERATIONAL_OVERVIEWS.find((item) => item.studyId === id) ?? MOCK_STUDY_OPERATIONAL_OVERVIEWS[0];
+  const studyDetails = MOCK_IDI_STUDY_DETAILS.find((item) => item.studyId === id) ?? MOCK_IDI_STUDY_DETAILS[0];
   const [sessions, setSessions] = useState<StudySession[]>(overview.sessions);
   const [activeInterviewTab, setActiveInterviewTab] = useState<InterviewTab>('upcoming');
 
@@ -352,7 +112,19 @@ export default function StudyOverviewPage() {
 
   function handleJoinSession(session: StudySession) {
     showActionToast(`Opening session workspace for ${session.participantName}.`);
-    router.push(`/idi-studies/${studyId}/sessions`);
+    router.push(`/idi-studies/${studyId}/sessions?session=${session.id}`);
+  }
+
+  function handlePlayRecording(session: StudySession) {
+    showActionToast(`Opening ${session.participantName}'s session…`);
+    router.push(`/idi-studies/${studyId}/sessions?session=${session.id}`);
+  }
+
+  function rateSession(sessionId: string, rating: number) {
+    setSessions((currentSessions) =>
+      currentSessions.map((item) => (item.id === sessionId ? { ...item, rating } : item))
+    );
+    showActionToast(`Rated ${rating} star${rating === 1 ? '' : 's'}.`);
   }
 
   function handleReschedule(session: StudySession) {
@@ -382,6 +154,29 @@ export default function StudyOverviewPage() {
     showActionToast(`Observer assigned to ${session.participantName}.`);
   }
 
+  function launchCallRoom() {
+    showActionToast('Opening call room…');
+    router.push(`/idi-studies/${studyId}/sessions`);
+  }
+
+  function cancelRequest() {
+    showToast({
+      message: 'Cancelling the request will stop recruitment and notify all booked participants.',
+      variant: 'warning',
+    });
+  }
+
+  function seeMore(message: string) {
+    return () => showActionToast(message);
+  }
+
+  const leadModerator = sessions[0]?.moderator ?? study.createdBy.name;
+  const scriptLabel =
+    overview.discussionGuide.totalQuestions > 0
+      ? `${overview.discussionGuide.totalQuestions} question${overview.discussionGuide.totalQuestions === 1 ? '' : 's'} added`
+      : '(None added)';
+  const progressLabel = study.status === 'completed' ? 'Completed' : 'In progress';
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <Link href="/idi-studies" className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
@@ -401,18 +196,115 @@ export default function StudyOverviewPage() {
         <StudyWorkspaceTabs studyId={studyId} activeTab="overview" />
       </div>
 
-      <div className="max-w-5xl">
-        <ParticipantInterviews
-          sessions={sessions}
-          activeTab={activeInterviewTab}
-          onChangeTab={setActiveInterviewTab}
-          onJoin={handleJoinSession}
-          onCopyLink={copySessionLink}
-          onReschedule={handleReschedule}
-          onCancel={handleCancel}
-          onAssignObserver={handleAssignObserver}
-        />
+      <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <OverviewCard
+          footer={
+            <span className="text-xs text-gray-500">
+              Created {format(new Date(study.createdAt), 'MMM d, yyyy hh:mm a')} by {study.createdBy.name}
+            </span>
+          }
+        >
+          <OverviewDetailRow label="Interview ID" value={studyDetails.numericId} />
+          <OverviewDetailRow label="Device type" value={studyDetails.deviceType} />
+          <OverviewDetailRow
+            label="Demographics"
+            value={studyDetails.demographics}
+            action={
+              <button
+                type="button"
+                className="text-sm font-medium text-blue-600 hover:underline"
+                onClick={seeMore('Opening demographics details…')}
+              >
+                See more
+              </button>
+            }
+          />
+          <OverviewDetailRow
+            label="Session duration"
+            value={`Up to ${overview.interviewDurationMinutes} min each`}
+          />
+          <OverviewDetailRow
+            label="Script"
+            value={scriptLabel}
+            action={
+              <button
+                type="button"
+                className="text-sm font-medium text-blue-600 hover:underline"
+                onClick={seeMore('Opening discussion guide…')}
+              >
+                See more
+              </button>
+            }
+          />
+          <OverviewDetailRow
+            label="Moderator"
+            value={leadModerator}
+            action={
+              <button
+                type="button"
+                className="text-sm font-medium text-blue-600 hover:underline"
+                onClick={seeMore('Opening moderator details…')}
+              >
+                See more
+              </button>
+            }
+          />
+        </OverviewCard>
+
+        <OverviewCard
+          footer={
+            <>
+              <span className="text-xs text-gray-500">
+                Requested {format(new Date(studyDetails.orderedAt), 'MMM d, yyyy hh:mm a')}
+              </span>
+              <button
+                type="button"
+                className="text-xs font-medium text-blue-600 hover:underline"
+                onClick={cancelRequest}
+                disabled={study.status === 'completed'}
+              >
+                Cancel request
+              </button>
+            </>
+          }
+        >
+          <div className="flex h-full flex-col items-center justify-center gap-3 py-2 text-center">
+            <p className="text-sm font-semibold uppercase tracking-wide text-gray-700">{progressLabel}</p>
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold text-gray-900">{study.participantGoal}</span> participants requested
+              {' \u00b7 '}
+              <span className="font-semibold text-gray-900">{study.sessionsCompleted}</span> completed
+              {' \u00b7 '}
+              <span className="font-semibold text-gray-900">{study.activeSessions}</span> in progress
+              {' \u00b7 '}
+              <button
+                type="button"
+                className="font-medium text-blue-600 hover:underline"
+                onClick={copyBookingLink}
+              >
+                Room links
+              </button>
+            </p>
+            <WuButton Icon={<span className="wm-videocam" />} onClick={launchCallRoom}>
+              Launch call room
+            </WuButton>
+          </div>
+        </OverviewCard>
       </div>
+
+      <ParticipantInterviewsTable
+        sessions={sessions}
+        activeTab={activeInterviewTab}
+        now={OPERATION_NOW}
+        onChangeTab={setActiveInterviewTab}
+        onJoin={handleJoinSession}
+        onCopyLink={copySessionLink}
+        onReschedule={handleReschedule}
+        onCancel={handleCancel}
+        onAssignObserver={handleAssignObserver}
+        onPlayRecording={handlePlayRecording}
+        onRateSession={rateSession}
+      />
     </div>
   );
 }

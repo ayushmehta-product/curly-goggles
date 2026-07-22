@@ -12,6 +12,12 @@ export interface StudySession {
   observerCount: number;
   timezone: string;
   status: StudySessionStatus;
+  /** Recording length for completed sessions; unset when no recording exists. */
+  videoDurationSeconds?: number | null;
+  /** Researcher rating 1–5; unset until rated. */
+  rating?: number | null;
+  /** Free-form researcher notes shown in the completed table. */
+  notes?: string;
 }
 
 export interface ParticipantPipelineGroup {
@@ -164,6 +170,9 @@ export const MOCK_STUDY_OPERATIONAL_OVERVIEWS: StudyOperationalOverview[] = [
         observerCount: 2,
         timezone: 'America/New_York',
         status: 'completed',
+        videoDurationSeconds: 571,
+        rating: 4,
+        notes: 'Confirms the onboarding checklist helps, but flags workspace permissions as the point where he lost confidence and needed support.',
       },
       {
         id: 'session-008',
@@ -175,6 +184,45 @@ export const MOCK_STUDY_OPERATIONAL_OVERVIEWS: StudyOperationalOverview[] = [
         observerCount: 1,
         timezone: 'Australia/Sydney',
         status: 'confirmed',
+      },
+      {
+        id: 'session-011',
+        studyId: 'idi-001',
+        participantName: 'Zoe Martin',
+        participantCompany: 'Cobalt Retail Group',
+        startsAt: '2026-05-11T14:00:00.000+05:30',
+        moderator: 'Marcus Lee',
+        observerCount: 1,
+        timezone: 'America/New_York',
+        status: 'completed',
+      },
+      {
+        id: 'session-009',
+        studyId: 'idi-001',
+        participantName: 'Elena Rossi',
+        participantCompany: 'Vantage Logistics',
+        startsAt: '2026-05-12T11:30:00.000+05:30',
+        moderator: 'Amara Shah',
+        observerCount: 1,
+        timezone: 'Europe/London',
+        status: 'completed',
+        videoDurationSeconds: 103,
+        rating: 5,
+        notes: 'The conversation is fragmented; logistics rather than substantive content early on. She offers acknowledgments, indicates a willingness to share details on how the setup wizard was rolled out across her operations team, and repeatedly returns to the missing bulk-import validation as the reason her admins still double-check every workspace manually before inviting team leads.',
+      },
+      {
+        id: 'session-010',
+        studyId: 'idi-001',
+        participantName: 'Farhan Khan',
+        participantCompany: 'Meridian Health Group',
+        startsAt: '2026-05-12T18:00:00.000+05:30',
+        moderator: 'Priya Nair',
+        observerCount: 0,
+        timezone: 'Asia/Dubai',
+        status: 'completed',
+        videoDurationSeconds: 442,
+        rating: 3,
+        notes: 'Briefly confirms procedures; mentions being in transit. Largely logistical, centering on language and location settings.',
       },
     ],
     pipeline: [

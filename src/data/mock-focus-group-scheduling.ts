@@ -29,6 +29,12 @@ export interface FocusGroupParticipant {
   attendanceStatus?: AttendanceStatus | null;
   invitedAt?: string;
   acknowledgedAt?: string;
+  /** Recording length for attended participants; null/undefined when no recording exists. */
+  videoDurationSeconds?: number | null;
+  /** Researcher rating 1–5; unset until rated. */
+  rating?: number | null;
+  /** Free-form researcher notes shown in the completed table. */
+  notes?: string;
 }
 
 export interface FocusGroupWorkspace {
@@ -172,12 +178,12 @@ export const MOCK_FOCUS_GROUP_WORKSPACES: FocusGroupWorkspace[] = [
     moderatorIds: ['mod-sofia-alvarez'],
     observerIds: ['obs-elena-rossi'],
     participants: [
-      { id: 'fgp-004-1', firstName: 'Farid', lastName: 'Bashir', email: 'farid.bashir@brightpay.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-10T18:00:00.000+05:30' },
-      { id: 'fgp-004-2', firstName: 'Grace', lastName: 'Liu', email: 'grace.liu@nimbleledger.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-11T07:40:00.000+05:30' },
-      { id: 'fgp-004-3', firstName: 'Tomas', lastName: 'Novak', email: 'tomas.novak@fieldcraftco.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-11T10:15:00.000+05:30' },
-      { id: 'fgp-004-4', firstName: 'Aaliyah', lastName: 'Brooks', email: 'aaliyah.brooks@paystreamhq.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-12T09:30:00.000+05:30' },
-      { id: 'fgp-004-5', firstName: 'Samuel', lastName: 'Osei', email: 'samuel.osei@ledgerlinkco.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-12T14:50:00.000+05:30' },
-      { id: 'fgp-004-6', firstName: 'Rina', lastName: 'Kapoor', email: 'rina.kapoor@smallworksco.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-13T08:10:00.000+05:30' },
+      { id: 'fgp-004-1', firstName: 'Farid', lastName: 'Bashir', email: 'farid.bashir@brightpay.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-10T18:00:00.000+05:30', videoDurationSeconds: 571, rating: 4, notes: 'Summary lean: confirms reconciliation workflow mostly works, but flags approval delays as the biggest friction point.' },
+      { id: 'fgp-004-2', firstName: 'Grace', lastName: 'Liu', email: 'grace.liu@nimbleledger.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-11T07:40:00.000+05:30', videoDurationSeconds: 103, rating: 5, notes: 'The conversation is fragmented; logistics rather than substantive content. She offers acknowledgments, indicates a willingness to share details on how the exports would be implemented across her finance team, and repeatedly returns to the missing audit trail as the reason her team still keeps a parallel spreadsheet.' },
+      { id: 'fgp-004-3', firstName: 'Tomas', lastName: 'Novak', email: 'tomas.novak@fieldcraftco.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-11T10:15:00.000+05:30', videoDurationSeconds: 327 },
+      { id: 'fgp-004-4', firstName: 'Aaliyah', lastName: 'Brooks', email: 'aaliyah.brooks@paystreamhq.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-12T09:30:00.000+05:30', videoDurationSeconds: 442, rating: 3, notes: 'Briefly confirms procedures; mentions being in transit, and notes being at work. Largely logistical, centering on language and location.' },
+      { id: 'fgp-004-5', firstName: 'Samuel', lastName: 'Osei', email: 'samuel.osei@ledgerlinkco.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-12T14:50:00.000+05:30', videoDurationSeconds: 205, rating: 4, notes: 'Confirms there are two areas for the demo after a brief tether panel issue; the details of how a chat script will be implemented are unclear.' },
+      { id: 'fgp-004-6', firstName: 'Rina', lastName: 'Kapoor', email: 'rina.kapoor@smallworksco.com', invitationStatus: 'sent', acknowledgmentStatus: 'acknowledged', attendanceStatus: 'attended', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-13T08:10:00.000+05:30', videoDurationSeconds: 141 },
       { id: 'fgp-004-7', firstName: 'Derek', lastName: 'Chan', email: 'derek.chan@paystreamhq.com', invitationStatus: 'sent', acknowledgmentStatus: 'declined', attendanceStatus: 'declined', invitedAt: '2026-06-10T09:00:00.000+05:30', acknowledgedAt: '2026-06-13T16:30:00.000+05:30' },
       { id: 'fgp-004-8', firstName: 'Wei', lastName: 'Zhang', email: 'wei.zhang@fieldcraftco.com', invitationStatus: 'sent', acknowledgmentStatus: 'pending', attendanceStatus: 'no-show', invitedAt: '2026-06-10T09:00:00.000+05:30' },
       { id: 'fgp-004-9', firstName: 'Elif', lastName: 'Demir', email: 'elif.demir@smallworksco.com', invitationStatus: 'not_sent', acknowledgmentStatus: 'pending', attendanceStatus: null },

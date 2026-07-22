@@ -8,8 +8,9 @@ import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FocusGroupWorkspaceTabs } from '@/components/focus-group-studies/FocusGroupWorkspaceTabs';
-import { FocusGroupOverviewSidebar } from '@/components/focus-group-studies/overview/FocusGroupOverviewSidebar';
+import { FocusGroupOverviewCards } from '@/components/focus-group-studies/overview/FocusGroupOverviewCards';
 import { FocusGroupParticipantAcknowledgments } from '@/components/focus-group-studies/overview/FocusGroupParticipantAcknowledgments';
+import { CollaboratorsModal } from '@/components/focus-group-studies/overview/CollaboratorsModal';
 import { PhaseStatusChip } from '@/components/focus-group-studies/overview/focus-group-status-badges';
 import { MOCK_FOCUS_GROUPS } from '@/data/mock-focus-groups';
 import {
@@ -59,6 +60,7 @@ export default function FocusGroupOverviewPage() {
     MOCK_FOCUS_GROUP_SESSION_ANALYSIS.find((item) => item.focusGroupId === id) ?? MOCK_FOCUS_GROUP_SESSION_ANALYSIS[0];
 
   const [workspace, setWorkspace] = useState<FocusGroupWorkspace>(() => cloneWorkspace(seedWorkspace));
+  const [isCollaboratorsOpen, setIsCollaboratorsOpen] = useState(false);
 
   const phase = useMemo(() => getWorkspacePhase(workspace), [workspace]);
   const acknowledgedCount = countAcknowledged(workspace.participants);
@@ -118,6 +120,16 @@ export default function FocusGroupOverviewPage() {
     showToast({ message: `Invitation resent to ${participant.email}.`, variant: 'success' });
   }
 
+  function rateParticipant(participantId: string, rating: number) {
+    setWorkspace((current) => ({
+      ...current,
+      participants: current.participants.map((participant) =>
+        participant.id === participantId ? { ...participant, rating } : participant
+      ),
+    }));
+    showToast({ message: `Rated ${rating} star${rating === 1 ? '' : 's'}.`, variant: 'success' });
+  }
+
   async function copyParticipantLink(participant: FocusGroupParticipant) {
     try {
       await navigator.clipboard.writeText(`${workspace.schedulingLink}?participant=${participant.id}`);
@@ -158,6 +170,27 @@ export default function FocusGroupOverviewPage() {
     });
   }
 
+  async function copyRoomLink() {
+    try {
+      await navigator.clipboard.writeText(workspace.callRoomUrl);
+      showToast({ message: 'Call room link copied.', variant: 'success' });
+    } catch {
+      showToast({ message: 'Unable to copy call room link.', variant: 'error' });
+    }
+  }
+
+  function cancelRequest() {
+    showToast({
+      message: 'Cancelling the request will stop recruitment and notify all invited participants.',
+      variant: 'warning',
+    });
+  }
+
+  function playParticipantRecording(participant: FocusGroupParticipant) {
+    showToast({ message: `Opening session recording for ${participant.firstName} ${participant.lastName}…`, variant: 'success' });
+    router.push(`/focus-group-studies/${id}/session?participant=${participant.id}`);
+  }
+
   const canJoinCallRoom = phase === 'ready' || phase === 'live';
 
   return (
@@ -174,6 +207,21 @@ export default function FocusGroupOverviewPage() {
         action={
           <>
             <PhaseStatusChip phase={phase} />
+            <WuButton
+              variant="link"
+              Icon={<span className="wm-edit" />}
+              disabled={phase === 'completed'}
+              onClick={editSessionTime}
+            >
+              Edit
+            </WuButton>
+            <WuButton
+              variant="link"
+              Icon={<span className="wm-groups" />}
+              onClick={() => setIsCollaboratorsOpen(true)}
+            >
+              Collaborators
+            </WuButton>
             <WuButton variant="secondary" Icon={<span className="wm-content-copy" />} onClick={copySchedulingLink}>
               Copy Scheduling Link
             </WuButton>
@@ -195,6 +243,29 @@ export default function FocusGroupOverviewPage() {
         <FocusGroupWorkspaceTabs focusGroupId={focusGroup.id} activeTab="overview" />
       </div>
 
+      <div className="mb-5">
+        <FocusGroupOverviewCards
+          focusGroup={focusGroup}
+          studyDetails={studyDetails}
+          workspace={workspace}
+          phase={phase}
+          scriptTopicCount={analysis.scriptTopics.length}
+          moderators={moderators}
+          acknowledgedCount={acknowledgedCount}
+          pendingCount={pendingCount}
+          declinedCount={declinedCount}
+          attendedCount={attendedCount}
+          noShowCount={noShowCount}
+          attendanceDeclinedCount={attendanceDeclinedCount}
+          invitationsSentCount={invitationsSentCount}
+          notSentCount={notSentCount}
+          canLaunchCallRoom={canJoinCallRoom}
+          onLaunchCallRoom={joinCallRoom}
+          onCopyRoomLink={copyRoomLink}
+          onCancelRequest={cancelRequest}
+        />
+      </div>
+
       {phase === 'live' && (
         <div className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
           Session is in progress.{' '}
@@ -205,34 +276,22 @@ export default function FocusGroupOverviewPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <FocusGroupParticipantAcknowledgments
-          participants={workspace.participants}
-          phase={phase}
-          onSetAcknowledgment={updateAcknowledgment}
-          onResendInvitation={resendInvitation}
-          onCopyParticipantLink={copyParticipantLink}
-        />
+      <FocusGroupParticipantAcknowledgments
+        participants={workspace.participants}
+        phase={phase}
+        onSetAcknowledgment={updateAcknowledgment}
+        onResendInvitation={resendInvitation}
+        onCopyParticipantLink={copyParticipantLink}
+        onRateParticipant={rateParticipant}
+        onPlayRecording={playParticipantRecording}
+      />
 
-        <FocusGroupOverviewSidebar
-          focusGroup={focusGroup}
-          studyDetails={studyDetails}
-          workspace={workspace}
-          phase={phase}
-          scriptTopicCount={analysis.scriptTopics.length}
-          moderators={moderators}
-          observers={observers}
-          acknowledgedCount={acknowledgedCount}
-          pendingCount={pendingCount}
-          declinedCount={declinedCount}
-          attendedCount={attendedCount}
-          noShowCount={noShowCount}
-          attendanceDeclinedCount={attendanceDeclinedCount}
-          invitationsSentCount={invitationsSentCount}
-          notSentCount={notSentCount}
-          onEditSessionTime={editSessionTime}
-        />
-      </div>
+      <CollaboratorsModal
+        open={isCollaboratorsOpen}
+        onOpenChange={setIsCollaboratorsOpen}
+        moderators={moderators}
+        observers={observers}
+      />
     </div>
   );
 }

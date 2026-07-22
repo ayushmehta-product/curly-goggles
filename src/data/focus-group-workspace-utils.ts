@@ -42,16 +42,33 @@ function deriveAttendanceStatus(participant: FocusGroupParticipant): AttendanceS
   return null;
 }
 
+/** Deterministic per-participant recording length so the prototype looks stable across renders. */
+function synthesizeVideoDuration(index: number) {
+  return 240 + ((index * 83) % 360);
+}
+
 /** Marks the session completed and assigns attendance from acknowledgment/invitation state. */
 export function applyCompletedSessionState(workspace: FocusGroupWorkspace): FocusGroupWorkspace {
   return {
     ...workspace,
     sessionStatus: 'completed',
-    participants: workspace.participants.map((participant) => ({
-      ...participant,
-      attendanceStatus: deriveAttendanceStatus(participant),
-    })),
+    participants: workspace.participants.map((participant, index) => {
+      const attendanceStatus = deriveAttendanceStatus(participant);
+      return {
+        ...participant,
+        attendanceStatus,
+        videoDurationSeconds:
+          participant.videoDurationSeconds ??
+          (attendanceStatus === 'attended' ? synthesizeVideoDuration(index) : null),
+      };
+    }),
   };
+}
+
+export function formatVideoDuration(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 /** Drives the status badge and which Overview layout (pre/live/post) to show. */
