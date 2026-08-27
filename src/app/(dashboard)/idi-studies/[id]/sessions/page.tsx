@@ -3,13 +3,16 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { StudyWorkspaceTabs } from '@/components/idi-studies/StudyWorkspaceTabs';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { annotationsForScope, tagsForScope, themesForScope, useAiInsights } from '@/components/insights-chat/ai-insights-store';
+import type { AiAnnotation, AiTag, AiTheme, InsightScopeRef } from '@/data/mock-ai-insights';
 import { MOCK_IDI_STUDIES } from '@/data/mock-idi-studies';
+import { MOCK_STUDY_OPERATIONAL_OVERVIEWS } from '@/data/mock-study-overview';
 import {
   MOCK_MODERATED_WORKSPACE_SESSIONS,
   WORKSPACE_RECORDING_STATUS_LABELS,
@@ -24,7 +27,11 @@ const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
   { ssr: false }
 );
-type ContextTab = 'transcript' | 'highlights' | 'notes' | 'themes';
+const WuChip = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuChip })),
+  { ssr: false }
+);
+type ContextTab = 'transcript' | 'highlights' | 'notes' | 'themes' | 'tags';
 
 const SESSION_STATUS_STYLES: Record<WorkspaceSessionStatus, string> = {
   scheduled: 'bg-gray-100 text-gray-700',
@@ -45,7 +52,16 @@ const CONTEXT_TABS: Array<{ value: ContextTab; label: string }> = [
   { value: 'highlights', label: 'Highlights' },
   { value: 'notes', label: 'Notes' },
   { value: 'themes', label: 'Themes' },
+  { value: 'tags', label: 'Tags' },
 ];
+
+function AiSourceBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700">
+      <span className="wm-auto-awesome text-[11px]" /> AI
+    </span>
+  );
+}
 
 function Badge({ children, className }: { children: ReactNode; className: string }) {
   return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${className}`}>{children}</span>;
@@ -66,6 +82,35 @@ function formatSessionDate(startsAt: string) {
 
 function formatShortSessionMeta(session: ModeratedWorkspaceSession) {
   return `${format(new Date(session.scheduledAt), 'MMM d, h:mm a')} - ${session.moderator}`;
+}
+
+function parseTimestampToSeconds(timestamp: string): number | null {
+  const parts = timestamp.split(':').map((part) => Number(part));
+  if (parts.some((part) => Number.isNaN(part))) return null;
+  return parts.reduce((total, part) => total * 60 + part, 0);
+}
+
+function findClosestTranscriptLine(session: ModeratedWorkspaceSession, targetSeconds: number): WorkspaceTranscriptLine | null {
+  let closest: { line: WorkspaceTranscriptLine; diff: number } | null = null;
+  for (const line of session.transcript) {
+    const seconds = parseTimestampToSeconds(line.timestamp);
+    if (seconds === null) continue;
+    const diff = Math.abs(seconds - targetSeconds);
+    if (!closest || diff < closest.diff) closest = { line, diff };
+  }
+  return closest?.line ?? null;
+}
+
+function resolveDeepLinkedSessionId(
+  studyId: string,
+  overviewSessionId: string | null,
+  sessions: ModeratedWorkspaceSession[]
+): string | undefined {
+  if (!overviewSessionId) return undefined;
+  const overview = MOCK_STUDY_OPERATIONAL_OVERVIEWS.find((item) => item.studyId === studyId);
+  const overviewSession = overview?.sessions.find((item) => item.id === overviewSessionId);
+  if (!overviewSession) return undefined;
+  return sessions.find((session) => session.participantName === overviewSession.participantName)?.id;
 }
 
 function SessionNavItem({
@@ -319,7 +364,11 @@ function TranscriptTab({
   );
 }
 
-function HighlightsTab({ session }: { session: ModeratedWorkspaceSession }) {
+function HighlightsTab({ session, aiAnnotations }: { session: ModeratedWorkspaceSession; aiAnnotations: AiAnnotation[] }) {
+  if (session.highlights.length === 0 && aiAnnotations.length === 0) {
+    return <p className="text-sm text-gray-500">No highlights have been captured for this session yet.</p>;
+  }
+
   return (
     <div className="space-y-3">
       {session.highlights.map((highlight) => (
@@ -330,6 +379,16 @@ function HighlightsTab({ session }: { session: ModeratedWorkspaceSession }) {
           </div>
           <p className="mt-3 text-sm leading-6 text-gray-700">&ldquo;{highlight.quote}&rdquo;</p>
           <p className="mt-3 border-l-2 border-blue-200 pl-3 text-xs leading-5 text-gray-600">{highlight.observation}</p>
+        </article>
+      ))}
+      {aiAnnotations.map((annotation) => (
+        <article key={annotation.id} className="rounded-xl border border-purple-100 bg-purple-50/40 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <AiSourceBadge />
+            <span className="shrink-0 text-xs font-medium text-gray-400">{annotation.excerpt.timestamp}</span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-gray-700">&ldquo;{annotation.excerpt.quote}&rdquo;</p>
+          <p className="mt-3 border-l-2 border-purple-200 pl-3 text-xs leading-5 text-gray-600">{annotation.note}</p>
         </article>
       ))}
     </div>
@@ -371,20 +430,49 @@ function NotesTab({
   );
 }
 
-function ThemesTab({ session }: { session: ModeratedWorkspaceSession }) {
-  const themes = [
-    { label: 'Recommendation trust', detail: session.keyObservations[0] },
-    { label: 'Workflow confidence', detail: session.keyObservations[1] ?? session.summary },
-    { label: 'Setup governance', detail: session.keyObservations[2] ?? session.participantOverview },
-  ];
+function ThemesTab({ aiThemes }: { aiThemes: AiTheme[] }) {
+  if (aiThemes.length === 0) {
+    return (
+      <p className="text-sm text-gray-500">
+        No themes yet. Ask InsightsHub chat to &ldquo;do a thematic analysis of this video&rdquo; and save the results here.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      {themes.map((theme) => (
-        <div key={theme.label} className="rounded-xl bg-gray-50 p-4">
-          <p className="text-sm font-semibold text-gray-950">{theme.label}</p>
-          <p className="mt-2 text-xs leading-5 text-gray-600">{theme.detail}</p>
+      {aiThemes.map((theme) => (
+        <div key={theme.id} className="rounded-xl border border-purple-100 bg-purple-50/40 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-gray-950">{theme.label}</p>
+            <AiSourceBadge />
+          </div>
+          {theme.excerpts.map((excerpt, index) => (
+            <p key={index} className="mt-2 text-xs leading-5 text-gray-600">
+              &ldquo;{excerpt.quote}&rdquo; <span className="text-gray-400">— {excerpt.speaker}</span>
+            </p>
+          ))}
         </div>
+      ))}
+    </div>
+  );
+}
+
+function TagsTab({ aiTags }: { aiTags: AiTag[] }) {
+  if (aiTags.length === 0) {
+    return (
+      <p className="text-sm text-gray-500">
+        No tags yet. Ask InsightsHub chat to &ldquo;suggest tags for this video&rdquo; and save the results here.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {aiTags.map((tag) => (
+        <WuChip key={tag.id} variant="secondary" size="sm" color={tag.status === 'validated' ? 'success' : undefined}>
+          {tag.label}
+        </WuChip>
       ))}
     </div>
   );
@@ -396,6 +484,9 @@ function ContextRail({
   selectedTranscriptId,
   notes,
   noteDraft,
+  aiThemes,
+  aiTags,
+  aiAnnotations,
   onChangeTab,
   onSelectTranscript,
   onChangeNoteDraft,
@@ -406,6 +497,9 @@ function ContextRail({
   selectedTranscriptId?: string;
   notes: string[];
   noteDraft: string;
+  aiThemes: AiTheme[];
+  aiTags: AiTag[];
+  aiAnnotations: AiAnnotation[];
   onChangeTab: (tab: ContextTab) => void;
   onSelectTranscript: (line: WorkspaceTranscriptLine) => void;
   onChangeNoteDraft: (value: string) => void;
@@ -415,7 +509,7 @@ function ContextRail({
     <aside className="flex min-h-[calc(100vh-194px)] flex-col border-l border-gray-200 bg-white">
       <div className="border-b border-gray-100 px-5 py-4">
         <div className="rounded-lg bg-gray-100 p-1">
-          <div className="grid grid-cols-4 gap-1">
+          <div className="grid grid-cols-5 gap-1">
             {CONTEXT_TABS.map((tab) => {
               const selected = activeTab === tab.value;
 
@@ -446,6 +540,7 @@ function ContextRail({
             {activeTab === 'highlights' && 'Synthesis-ready moments from this interview.'}
             {activeTab === 'notes' && 'Private research notes for this session.'}
             {activeTab === 'themes' && 'Emerging patterns tied to this participant.'}
+            {activeTab === 'tags' && 'Tags saved from the InsightsHub chat for this session.'}
           </p>
         </div>
         <div>
@@ -456,7 +551,7 @@ function ContextRail({
               onSelectTranscript={onSelectTranscript}
             />
           )}
-          {activeTab === 'highlights' && <HighlightsTab session={session} />}
+          {activeTab === 'highlights' && <HighlightsTab session={session} aiAnnotations={aiAnnotations} />}
           {activeTab === 'notes' && (
             <NotesTab
               notes={notes}
@@ -465,7 +560,8 @@ function ContextRail({
               onAddNote={onAddNote}
             />
           )}
-          {activeTab === 'themes' && <ThemesTab session={session} />}
+          {activeTab === 'themes' && <ThemesTab aiThemes={aiThemes} />}
+          {activeTab === 'tags' && <TagsTab aiTags={aiTags} />}
         </div>
       </div>
     </aside>
@@ -474,6 +570,7 @@ function ContextRail({
 
 export default function ModeratedStudySessionsPage() {
   const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const { showToast } = useWuShowToast();
   const study = MOCK_IDI_STUDIES.find((item) => item.id === id);
   const initialSessions = MOCK_MODERATED_WORKSPACE_SESSIONS.filter((session) => session.studyId === id);
@@ -481,9 +578,25 @@ export default function ModeratedStudySessionsPage() {
   const [sessions, setSessions] = useState<ModeratedWorkspaceSession[]>(
     initialSessions.length > 0 ? initialSessions : fallbackSessions
   );
-  const [activeSessionId, setActiveSessionId] = useState((initialSessions[0] ?? fallbackSessions[0])?.id ?? '');
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    const deepLinkedId = resolveDeepLinkedSessionId(
+      id,
+      searchParams.get('session'),
+      initialSessions.length > 0 ? initialSessions : fallbackSessions
+    );
+    return deepLinkedId ?? (initialSessions[0] ?? fallbackSessions[0])?.id ?? '';
+  });
   const [activeTab, setActiveTab] = useState<ContextTab>('transcript');
-  const [selectedTranscriptId, setSelectedTranscriptId] = useState<string>();
+  const [selectedTranscriptId, setSelectedTranscriptId] = useState<string | undefined>(() => {
+    const timestampParam = searchParams.get('t');
+    const sessionList = initialSessions.length > 0 ? initialSessions : fallbackSessions;
+    const deepLinkedId = resolveDeepLinkedSessionId(id, searchParams.get('session'), sessionList);
+    const initialSession = sessionList.find((session) => session.id === deepLinkedId) ?? sessionList[0];
+    if (!timestampParam || !initialSession) return undefined;
+    const seconds = Number(timestampParam);
+    if (Number.isNaN(seconds)) return undefined;
+    return findClosestTranscriptLine(initialSession, seconds)?.id;
+  });
   const [noteDraft, setNoteDraft] = useState('');
   const [notes, setNotes] = useState<string[]>([
     'Probe whether the participant needs a preview before applying recommendations globally.',
@@ -493,6 +606,28 @@ export default function ModeratedStudySessionsPage() {
     () => sessions.find((session) => session.id === activeSessionId) ?? sessions[0],
     [activeSessionId, sessions]
   );
+
+  const timestampParam = searchParams.get('t');
+  const seekKey = `${timestampParam ?? ''}:${activeSession?.id ?? ''}`;
+  const [appliedSeekKey, setAppliedSeekKey] = useState(seekKey);
+  if (seekKey !== appliedSeekKey) {
+    setAppliedSeekKey(seekKey);
+    if (timestampParam && activeSession && !Number.isNaN(Number(timestampParam))) {
+      const closestLine = findClosestTranscriptLine(activeSession, Number(timestampParam));
+      if (closestLine) {
+        setSelectedTranscriptId(closestLine.id);
+        setActiveTab('transcript');
+      }
+    }
+  }
+
+  const aiInsights = useAiInsights();
+  const sessionScopeRef: InsightScopeRef | null = activeSession
+    ? { kind: 'idi-session', studyId: id, sessionId: activeSession.id }
+    : null;
+  const aiThemes = sessionScopeRef ? themesForScope(aiInsights, sessionScopeRef) : [];
+  const aiTags = sessionScopeRef ? tagsForScope(aiInsights, sessionScopeRef) : [];
+  const aiAnnotations = sessionScopeRef ? annotationsForScope(aiInsights, sessionScopeRef) : [];
 
   if (!study || !activeSession) {
     return (
@@ -611,6 +746,9 @@ export default function ModeratedStudySessionsPage() {
           selectedTranscriptId={selectedTranscriptId}
           notes={notes}
           noteDraft={noteDraft}
+          aiThemes={aiThemes}
+          aiTags={aiTags}
+          aiAnnotations={aiAnnotations}
           onChangeTab={setActiveTab}
           onSelectTranscript={selectTranscriptLine}
           onChangeNoteDraft={setNoteDraft}

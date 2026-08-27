@@ -273,4 +273,93 @@ export const MOCK_MODERATED_WORKSPACE_SESSIONS: ModeratedWorkspaceSession[] = [
       },
     ],
   },
+  {
+    id: 'ws-session-005',
+    studyId: 'idi-001',
+    participantName: 'Farhan Khan',
+    participantRole: 'IT Onboarding Lead',
+    participantCompany: 'Meridian Health Group',
+    scheduledAt: '2026-05-12T18:00:00.000+05:30',
+    moderator: 'Priya Nair',
+    observerCount: 0,
+    duration: '07:22',
+    status: 'completed',
+    recordingStatus: 'ready',
+    summary:
+      "Farhan's session ran during a layover, so much of the conversation centered on confirming logistics rather than deep product feedback. He surfaced two clear signals: the language toggle needs to be visible earlier in setup, and location-based defaults caused early confusion for his multi-country team.",
+    participantOverview:
+      'IT onboarding lead rolling out workspace setup across regional offices for a multi-country healthcare network.',
+    keyObservations: [
+      'Language settings need to be visible earlier in the onboarding flow, not buried in advanced settings.',
+      'Location-based defaults created early confusion for teams spanning multiple countries.',
+      'Session context (in transit) limited the depth of product feedback captured.',
+    ],
+    transcript: [
+      {
+        id: 'tr-005-001',
+        timestamp: '00:00',
+        speaker: 'Moderator',
+        text: 'Thanks for making time between flights. Can you confirm you can hear me okay before we start?',
+      },
+      {
+        id: 'tr-005-002',
+        timestamp: '00:14',
+        speaker: 'Participant',
+        text: "Yes, loud and clear. I'm at the gate, so I'll flag if boarding starts.",
+      },
+      {
+        id: 'tr-005-003',
+        timestamp: '01:05',
+        speaker: 'Moderator',
+        text: 'No problem. Let\u2019s start with the language settings during setup. How did that go for your team?',
+      },
+      {
+        id: 'tr-005-004',
+        timestamp: '01:22',
+        speaker: 'Participant',
+        text: "It's like skipping straight to the last chapter of a book and missing why anything happened. By the time I found the language toggle buried in advanced settings, I'd already set up half my team wrong.",
+      },
+      {
+        id: 'tr-005-005',
+        timestamp: '03:40',
+        speaker: 'Moderator',
+        text: 'Got it. What about the location-based defaults \u2014 did those cause any confusion?',
+      },
+      {
+        id: 'tr-005-006',
+        timestamp: '03:58',
+        speaker: 'Participant',
+        text: 'Some. Our offices span three countries, and the defaults assumed everyone was in one region. We had to manually correct it for two sites.',
+      },
+      {
+        id: 'tr-005-007',
+        timestamp: '06:10',
+        speaker: 'Moderator',
+        text: 'Last question \u2014 any recommendations for how onboarding could work better for a team like yours?',
+      },
+      {
+        id: 'tr-005-008',
+        timestamp: '06:28',
+        speaker: 'Participant',
+        text: "Actually, I've been reading a book on managing distributed teams, and it breaks everything into small chapters you can absorb in five minutes. I wish workspace setup worked the same way instead of one long form.",
+      },
+    ],
+    highlights: [
+      {
+        id: 'hl-005-001',
+        timestamp: '01:22',
+        title: 'Buried language toggle causes early missteps',
+        quote:
+          "By the time I found the language toggle buried in advanced settings, I'd already set up half my team wrong.",
+        observation: 'Language settings need to surface earlier in setup, not inside advanced settings.',
+      },
+      {
+        id: 'hl-005-002',
+        timestamp: '06:28',
+        title: 'Onboarding should read like a well-structured book',
+        quote: 'It breaks everything into small chapters you can absorb in five minutes.',
+        observation: 'Chunked, chapter-style onboarding may reduce setup fatigue for busy admins.',
+      },
+    ],
+  },
 ];

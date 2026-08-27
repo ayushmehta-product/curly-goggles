@@ -9,6 +9,7 @@ import {
   type StudyStatus,
   STUDY_STATUS_LABELS,
 } from '@/data/mock-idi-studies';
+import { useAiInsights } from '@/components/insights-chat/ai-insights-store';
 import { truncate } from '@/data/mock-utils';
 
 const WuTable = dynamic(
@@ -25,6 +26,10 @@ const WuMenuItem = dynamic(
 );
 const WuMenuSeparatorItem = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuMenuSeparatorItem })),
+  { ssr: false }
+);
+const WuChip = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuChip })),
   { ssr: false }
 );
 
@@ -150,6 +155,7 @@ export function StudiesTable({
   onArchive,
   onDelete,
 }: StudiesTableProps) {
+  const aiInsights = useAiInsights();
   const columns: IWuTableColumnDef<IdiStudy>[] = [
     {
       accessorKey: 'title',
@@ -168,28 +174,32 @@ export function StudiesTable({
             >
               {truncate(study.title, 86)}
             </Link>
-            {/* <p className="mt-1 text-xs text-gray-500">
-              {study.researchObjective
-                ? truncate(study.researchObjective, 112)
-                : 'Research objective not added yet.'}
-            </p> */}
-            {/* {study.tags && study.tags.length > 0 && (
-              <div className="mt-2 flex max-w-full flex-wrap gap-1">
-                {study.tags.slice(0, 3).map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600"
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {study.tags.length > 3 && (
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500">
-                    +{study.tags.length - 3}
-                  </span>
-                )}
-              </div>
-            )} */}
+            {(() => {
+              const studyTags = study.tags ?? [];
+              const aiTags = aiInsights.tags
+                .filter((tag) => {
+                  if (tag.scope.kind === 'idi-study') return tag.scope.studyId === study.id;
+                  if (tag.scope.kind === 'idi-session') return tag.scope.studyId === study.id;
+                  return false;
+                })
+                .map((tag) => tag.label);
+              const tags = [...new Set([...studyTags, ...aiTags])];
+              if (tags.length === 0) return null;
+              return (
+                <div className="mt-2 flex max-w-full flex-wrap gap-1">
+                  {tags.slice(0, 3).map((tag) => (
+                    <WuChip key={tag} variant="secondary" size="sm">
+                      {tag}
+                    </WuChip>
+                  ))}
+                  {tags.length > 3 && (
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500">
+                      +{tags.length - 3}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         );
       },

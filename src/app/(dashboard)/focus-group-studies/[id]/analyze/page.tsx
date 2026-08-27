@@ -1,12 +1,31 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FocusGroupWorkspaceTabs } from '@/components/focus-group-studies/FocusGroupWorkspaceTabs';
+import { annotationsForScope, tagsForScope, themesForScope, useAiInsights } from '@/components/insights-chat/ai-insights-store';
 import { MOCK_FOCUS_GROUPS } from '@/data/mock-focus-groups';
 import { MOCK_FOCUS_GROUP_SESSION_ANALYSIS } from '@/data/mock-focus-group-session-analysis';
+
+const WuChip = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuChip })),
+  { ssr: false }
+);
+const WuCard = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuCard })),
+  { ssr: false }
+);
+
+function AiSourceBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700">
+      <span className="wm-auto-awesome text-[11px]" /> AI
+    </span>
+  );
+}
 
 export default function FocusGroupAnalyzePage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +33,21 @@ export default function FocusGroupAnalyzePage() {
   const focusGroup = MOCK_FOCUS_GROUPS.find((item) => item.id === id);
   const analysis =
     MOCK_FOCUS_GROUP_SESSION_ANALYSIS.find((item) => item.focusGroupId === id) ?? MOCK_FOCUS_GROUP_SESSION_ANALYSIS[0];
+
+  const aiInsights = useAiInsights();
+  const aiAnnotations = focusGroup ? annotationsForScope(aiInsights, { kind: 'fg-session', focusGroupId: focusGroup.id }) : [];
+  const aiThemes = focusGroup
+    ? [
+        ...themesForScope(aiInsights, { kind: 'fg-session', focusGroupId: focusGroup.id }),
+        ...themesForScope(aiInsights, { kind: 'fg-study', focusGroupId: focusGroup.id }),
+      ]
+    : [];
+  const aiTags = focusGroup
+    ? [
+        ...tagsForScope(aiInsights, { kind: 'fg-session', focusGroupId: focusGroup.id }),
+        ...tagsForScope(aiInsights, { kind: 'fg-study', focusGroupId: focusGroup.id }),
+      ]
+    : [];
 
   if (!focusGroup) {
     return (
@@ -64,14 +98,27 @@ export default function FocusGroupAnalyzePage() {
             </p>
             <div className="mt-4 space-y-3">
               {analysis.annotations.map((annotation) => (
-                <article key={annotation.id} className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                <WuCard key={annotation.id} rounded className="p-4 wu-shadow-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-blue-700">{annotation.timestampLabel}</span>
                     <span className="text-xs text-gray-500">{annotation.author}</span>
                   </div>
                   <p className="mt-2 text-sm leading-6 text-gray-700">{annotation.note}</p>
-                </article>
+                </WuCard>
               ))}
+              {aiAnnotations.map((annotation) => (
+                <WuCard key={annotation.id} rounded className="p-4 wu-shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-blue-700">{annotation.excerpt.timestamp}</span>
+                    <AiSourceBadge />
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-gray-700">{annotation.note}</p>
+                  <p className="mt-2 text-xs leading-5 text-gray-500">&ldquo;{annotation.excerpt.quote}&rdquo;</p>
+                </WuCard>
+              ))}
+              {analysis.annotations.length === 0 && aiAnnotations.length === 0 && (
+                <p className="text-sm text-gray-500">No highlights have been captured for this session yet.</p>
+              )}
             </div>
           </section>
 
@@ -99,8 +146,33 @@ export default function FocusGroupAnalyzePage() {
                     {theme.label}
                   </span>
                 ))}
+                {aiThemes.map((theme) => (
+                  <span
+                    key={theme.id}
+                    className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50/60 px-2.5 py-1 text-xs font-medium text-purple-800"
+                  >
+                    <span className="wm-auto-awesome text-[11px]" />
+                    {theme.label}
+                  </span>
+                ))}
               </div>
             </section>
+
+            {aiTags.length > 0 && (
+              <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm font-semibold text-gray-900">Tags</h3>
+                  <AiSourceBadge />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {aiTags.map((tag) => (
+                    <WuChip key={tag.id} variant="secondary" size="sm" color={tag.status === 'validated' ? 'success' : undefined}>
+                      {tag.label}
+                    </WuChip>
+                  ))}
+                </div>
+              </section>
+            )}
           </aside>
         </div>
       )}

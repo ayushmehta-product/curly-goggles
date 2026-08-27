@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { FocusGroupWorkspaceTabs } from '@/components/focus-group-studies/FocusGroupWorkspaceTabs';
@@ -12,6 +13,8 @@ import {
   type ReferencePanelTab,
 } from '@/components/focus-group-studies/session/SessionReferencePanel';
 import { SessionSummaryPanel } from '@/components/focus-group-studies/session/SessionSummaryPanel';
+import { annotationsForScope, tagsForScope, themesForScope, useAiInsights } from '@/components/insights-chat/ai-insights-store';
+import type { AiTheme, InsightScopeRef } from '@/data/mock-ai-insights';
 import type { FocusGroup } from '@/data/mock-focus-groups';
 import type { FocusGroupWorkspace } from '@/data/mock-focus-group-scheduling';
 import type {
@@ -27,21 +30,44 @@ interface FocusGroupSessionWorkspaceProps {
   session: FocusGroupSession;
 }
 
-export function FocusGroupSessionWorkspace({ focusGroup, workspace, session }: FocusGroupSessionWorkspaceProps) {
+export function FocusGroupSessionWorkspace({
+  focusGroup,
+  workspace,
+  session,
+}: FocusGroupSessionWorkspaceProps) {
   const { showToast } = useWuShowToast();
+  const searchParams = useSearchParams();
+
+  const timestampParam = searchParams.get('t');
+  const urlSeconds =
+    timestampParam !== null && timestampParam !== '' && !Number.isNaN(Number(timestampParam))
+      ? Math.min(session.durationSeconds, Math.max(0, Number(timestampParam)))
+      : null;
 
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [manualTime, setManualTime] = useState<number | null>(null);
+  const [seenTimestampParam, setSeenTimestampParam] = useState(timestampParam);
+  if (timestampParam !== seenTimestampParam) {
+    setSeenTimestampParam(timestampParam);
+    setManualTime(null);
+  }
+  const currentTime = manualTime ?? urlSeconds ?? 0;
   const [ccEnabled, setCcEnabled] = useState(false);
   const [activeRailTab, setActiveRailTab] = useState<ReferencePanelTab>('index');
   const [selectedTranscriptId, setSelectedTranscriptId] = useState<string | undefined>(undefined);
   const [activeThemeId, setActiveThemeId] = useState<string | undefined>(undefined);
   const [annotations, setAnnotations] = useState<SessionAnnotation[]>(session.annotations);
 
+  const aiInsights = useAiInsights();
+  const scopeRef: InsightScopeRef = { kind: 'fg-session', focusGroupId: focusGroup.id };
+  const aiThemes = themesForScope(aiInsights, scopeRef);
+  const aiTags = tagsForScope(aiInsights, scopeRef);
+  const aiAnnotations = annotationsForScope(aiInsights, scopeRef);
+
   const canPlayback = session.recordingStatus === 'ready';
 
   function seekTo(seconds: number) {
-    setCurrentTime(Math.min(session.durationSeconds, Math.max(0, seconds)));
+    setManualTime(Math.min(session.durationSeconds, Math.max(0, seconds)));
   }
 
   function handleTogglePlay() {
@@ -64,6 +90,12 @@ export function FocusGroupSessionWorkspace({ focusGroup, workspace, session }: F
   function handleSelectTheme(theme: SessionTheme) {
     setActiveThemeId(theme.id);
     seekTo(theme.startSeconds);
+  }
+
+  function handleSelectAiTheme(theme: AiTheme) {
+    setActiveThemeId(theme.id);
+    const seconds = theme.excerpts.find((excerpt) => excerpt.timestampSeconds !== undefined)?.timestampSeconds;
+    if (seconds !== undefined) seekTo(seconds);
   }
 
   function handleClearAnnotations() {
@@ -112,7 +144,22 @@ export function FocusGroupSessionWorkspace({ focusGroup, workspace, session }: F
               ccEnabled={ccEnabled}
               recordingStatus={session.recordingStatus}
               recordedAt={session.recordedAt}
-              themes={session.themes}
+              themes={[
+                ...session.themes,
+                ...aiThemes.map((theme) => {
+                  const seconds =
+                    theme.excerpts.find((excerpt) => excerpt.timestampSeconds !== undefined)?.timestampSeconds ?? 0;
+                  const startSeconds = Math.max(0, seconds - 15);
+                  const endSeconds = Math.min(session.durationSeconds, seconds + 15);
+                  return {
+                    id: theme.id,
+                    label: theme.label,
+                    color: theme.color,
+                    startSeconds,
+                    endSeconds,
+                  };
+                }),
+              ]}
               onTogglePlay={handleTogglePlay}
               onSeek={seekTo}
               onSkip={handleSkip}
@@ -120,7 +167,13 @@ export function FocusGroupSessionWorkspace({ focusGroup, workspace, session }: F
               onAddAnnotation={handleAddAnnotation}
             />
 
-            <SessionThemes themes={session.themes} activeThemeId={activeThemeId} onSelectTheme={handleSelectTheme} />
+            <SessionThemes
+              themes={session.themes}
+              aiThemes={aiThemes}
+              activeThemeId={activeThemeId}
+              onSelectTheme={handleSelectTheme}
+              onSelectAiTheme={handleSelectAiTheme}
+            />
 
             <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-4">
               <span className="text-xs font-medium text-gray-500">Participants:</span>
@@ -131,6 +184,8 @@ export function FocusGroupSessionWorkspace({ focusGroup, workspace, session }: F
           <SessionReferencePanel
             session={session}
             annotations={annotations}
+            aiAnnotations={aiAnnotations}
+            aiTags={aiTags}
             activeTab={activeRailTab}
             selectedTranscriptId={selectedTranscriptId}
             onChangeTab={setActiveRailTab}
@@ -141,7 +196,6 @@ export function FocusGroupSessionWorkspace({ focusGroup, workspace, session }: F
           />
         </div>
 
-        {/* Tier 2: full-width summary cards */}
         <SessionSummaryPanel summary={session.summary} keyTakeaways={session.keyTakeaways} />
       </section>
 

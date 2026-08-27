@@ -25,9 +25,19 @@ const NAV_ITEMS = [
     icon: <span className="wm-groups" />,
   },
   {
+    label: 'Usability Tests',
+    href: '/usability-tests',
+    icon: <span className="wm-touch-app" />,
+  },
+  {
     label: 'Projects',
     href: '/projects',
     icon: <span className="wm-folder-data" />,
+  },
+  {
+    label: 'InsightsHub Chats',
+    href: '/insights-hub-chats',
+    icon: <span className="wm-smart-toy" />,
   },
 ];
 

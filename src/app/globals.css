@@ -35,3 +35,19 @@
 .date-field .wm-calendar-month {
   color: var(--color-accent);
 }
+
+/*
+ * WuSidebar's content slot defaults to height:100% + overflow:auto, which
+ * traps scroll inside a fixed viewport. Override so page content can grow
+ * and the document scrolls normally.
+ */
+._content_1cpdq_13 {
+  height: auto !important;
+  overflow: visible !important;
+  padding: 0 !important;
+}
+
+._container_1cpdq_1 {
+  height: auto !important;
+  min-height: 100%;
+}
