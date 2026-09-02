@@ -67,13 +67,13 @@ export default function FocusGroupStudiesPage() {
 
     return [
       {
-        label: 'Total Focus Groups',
+        label: 'Total focus groups',
         value: focusGroups.length,
         helper: `${draftCount} drafts in setup`,
         icon: 'wm-groups',
       },
       {
-        label: 'Awaiting Acknowledgment',
+        label: 'Awaiting acknowledgment',
         value: schedulingCount,
         helper: 'Waiting on participant acknowledgments',
         icon: 'wm-mark-email-unread',
@@ -187,11 +187,11 @@ export default function FocusGroupStudiesPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <PageHeader
-        title="Focus Groups"
+        title="Focus groups"
         description="Create and manage shared-session focus group studies."
         action={
           <WuButton onClick={() => router.push('/focus-group-studies/create')}>
-            <span className="wm-add" /> Create Focus Group
+            <span className="wm-add" /> Create focus group
           </WuButton>
         }
       />

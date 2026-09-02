@@ -1,21 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { IWuTableColumnDef } from '@npm-questionpro/wick-ui-lib';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
-import { MOCK_PROJECTS, type Project, type ProjectStatus } from '@/data/mock-projects';
-import { formatDate } from '@/data/mock-utils';
+import { FoldersTable } from '@/components/projects/FoldersTable';
+import { FoldersGrid } from '@/components/projects/FoldersGrid';
+import { MOCK_STUDY_FOLDERS, type StudyFolder } from '@/data/mock-projects';
 
-const WuTable = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTable })),
-  { ssr: false }
-);
 const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
   { ssr: false }
@@ -24,20 +19,8 @@ const WuInput = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuInput })),
   { ssr: false }
 );
-const WuSelect = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSelect })),
-  { ssr: false }
-);
-const WuMenu = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuMenu })),
-  { ssr: false }
-);
-const WuMenuItem = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuMenuItem })),
-  { ssr: false }
-);
-const WuMenuSeparatorItem = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuMenuSeparatorItem })),
+const WuCheckbox = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuCheckbox })),
   { ssr: false }
 );
 const WuModal = dynamic(
@@ -60,248 +43,209 @@ const WuModalClose = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuModalClose })),
   { ssr: false }
 );
-const WuTextarea = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTextarea })),
-  { ssr: false }
-);
 
-type StatusOption = { value: string; label: string };
+type ViewMode = 'list' | 'grid';
+const PAGE_SIZE = 8;
 
-const STATUS_FILTER_OPTIONS: StatusOption[] = [
-  { value: 'all', label: 'All Statuses' },
-  { value: 'active', label: 'Active' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'archived', label: 'Archived' },
-];
-
-function StatusBadge({ status }: { status: ProjectStatus }) {
-  const styles: Record<ProjectStatus, string> = {
-    active: 'bg-green-100 text-green-700',
-    draft: 'bg-gray-100 text-gray-600',
-    archived: 'bg-amber-100 text-amber-700',
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${styles[status]}`}>
-      {status}
-    </span>
-  );
-}
-
-function RowActions({
-  project,
-  onArchive,
-}: {
-  project: Project;
-  onArchive: (p: Project) => void;
-}) {
-  const router = useRouter();
-  return (
-    <WuMenu
-      Trigger={
-        <button type="button" className="p-1 rounded-md hover:bg-gray-100">
-          <span className="wm-more-vert text-gray-500" />
-        </button>
-      }
-      align="end"
-    >
-      <WuMenuItem onSelect={() => router.push(`/projects/${project.id}`)}>
-        View details
-      </WuMenuItem>
-      <WuMenuSeparatorItem />
-      <WuMenuItem
-        onSelect={() => onArchive(project)}
-        disabled={project.status === 'archived'}
-      >
-        Archive
-      </WuMenuItem>
-    </WuMenu>
-  );
-}
-
-const DEFAULT_FORM = { name: '', description: '', status: 'draft' as ProjectStatus };
-
-export default function ProjectsPage() {
+export default function FoldersPage() {
   const { showToast } = useWuShowToast();
+  const router = useRouter();
+  const [folders, setFolders] = useState<StudyFolder[]>(MOCK_STUDY_FOLDERS);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusOption | null>(null);
+  const [view, setView] = useState<ViewMode>('list');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [page, setPage] = useState(0);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [formData, setFormData] = useState(DEFAULT_FORM);
-  const [archiveTarget, setArchiveTarget] = useState<Project | null>(null);
+  const [newName, setNewName] = useState('');
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
-  const filteredProjects = useMemo(() => {
-    if (!statusFilter || statusFilter.value === 'all') return MOCK_PROJECTS;
-    return MOCK_PROJECTS.filter((p) => p.status === statusFilter.value);
-  }, [statusFilter]);
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return folders;
+    return folders.filter((folder) => folder.name.toLowerCase().includes(query));
+  }, [folders, search]);
 
-  const columns: IWuTableColumnDef<Project>[] = [
-    {
-      accessorKey: 'name',
-      header: 'Project Name',
-      filterable: true,
-      cell: ({ row }) => (
-        <Link
-          href={`/projects/${row.original.id}`}
-          className="font-medium text-blue-600 hover:underline"
-        >
-          {row.original.name}
-        </Link>
-      ),
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      filterable: true,
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
-    },
-    {
-      accessorKey: 'owner',
-      header: 'Owner',
-      filterable: true,
-      cell: ({ row }) => row.original.owner,
-    },
-    {
-      accessorKey: 'responses',
-      header: 'Responses',
-      headerAlign: 'right',
-      cellAlign: 'right',
-      cell: ({ row }) => row.original.responses.toLocaleString(),
-    },
-    {
-      accessorKey: 'createdAt',
-      header: 'Created',
-      cell: ({ row }) => formatDate(row.original.createdAt),
-    },
-    {
-      accessorKey: 'id',
-      header: '',
-      cellAlign: 'right',
-      cell: ({ row }) => (
-        <RowActions project={row.original} onArchive={setArchiveTarget} />
-      ),
-    },
-  ];
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const allPageSelected = pageItems.length > 0 && pageItems.every((folder) => selectedIds.includes(folder.id));
+
+  function handleToggle(folder: StudyFolder) {
+    setSelectedIds((current) =>
+      current.includes(folder.id) ? current.filter((id) => id !== folder.id) : [...current, folder.id]
+    );
+  }
+
+  function handleSelectAll(checked: boolean) {
+    const pageIds = pageItems.map((folder) => folder.id);
+    setSelectedIds((current) => {
+      const withoutPage = current.filter((id) => !pageIds.includes(id));
+      return checked ? [...withoutPage, ...pageIds] : withoutPage;
+    });
+  }
 
   function handleCreate() {
-    if (!formData.name.trim()) return;
+    if (!newName.trim()) return;
+    const now = new Date().toISOString().slice(0, 10);
+    const folder: StudyFolder = {
+      id: `f-${Date.now()}`,
+      name: newName.trim(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    setFolders((current) => [folder, ...current]);
     setIsCreateOpen(false);
-    setFormData(DEFAULT_FORM);
-    showToast({ message: `"${formData.name}" created`, variant: 'success' });
+    setNewName('');
+    showToast({ message: `"${folder.name}" created`, variant: 'success' });
   }
 
   function handleArchive() {
-    if (!archiveTarget) return;
-    showToast({ message: `"${archiveTarget.name}" archived`, variant: 'success' });
-    setArchiveTarget(null);
+    if (selectedIds.length === 0) {
+      showToast({ message: 'Select folders to archive', variant: 'error' });
+      return;
+    }
+    setArchiveOpen(true);
   }
 
-  const statusFormOptions = [
-    { value: 'draft' as const, label: 'Draft' },
-    { value: 'active' as const, label: 'Active' },
-  ];
+  function confirmArchive() {
+    setFolders((current) => current.filter((folder) => !selectedIds.includes(folder.id)));
+    showToast({ message: `${selectedIds.length} items archived`, variant: 'success' });
+    setSelectedIds([]);
+    setArchiveOpen(false);
+    router.push('/projects/recycle-bin');
+  }
 
   return (
-    <div className="p-6">
+    <div className="qp-enter">
       <PageHeader
-        title="Projects"
-        description="Manage and track all your research projects"
+        title="Folders"
         action={
-          <WuButton onClick={() => setIsCreateOpen(true)}>
-            <span className="wm-add" /> New Project
+          <>
+            <WuButton variant="link" Icon={<span className="wm-security" />} onClick={() => showToast({ message: 'System logs opened', variant: 'success' })}>
+              System logs
+            </WuButton>
+            <WuButton variant="outline" Icon={<span className="wm-settings" />} onClick={() => showToast({ message: 'Admin opened', variant: 'success' })}>
+              Admin
+            </WuButton>
+          </>
+        }
+      />
+
+      <div className="px-4 pb-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <WuButton Icon={<span className="wm-add" />} onClick={() => setIsCreateOpen(true)}>
+            New folder
           </WuButton>
-        }
-      />
-
-      <div className="flex items-center gap-3 mb-4">
-        <WuInput
-          variant="outlined"
-          placeholder="Search projects..."
-          Icon={<span className="wm-search" />}
-          iconPosition="left"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-64"
-        />
-        <WuSelect
-          data={STATUS_FILTER_OPTIONS}
-          accessorKey={{ value: 'value', label: 'label' }}
-          value={statusFilter}
-          onSelect={(v) => {
-            const item = v as StatusOption;
-            setStatusFilter(item.value === 'all' ? null : item);
-          }}
-          // placeholder="Select Status"
-          variant="outlined"
-        />
-      </div>
-
-      <WuTable
-        data={filteredProjects as unknown[]}
-        columns={columns as unknown as IWuTableColumnDef<unknown>[]}
-        variant="striped"
-        sort={{ enabled: true }}
-        filterText={search}
-        NoDataContent={
-          <EmptyState
-            icon="wm-search-off"
-            title="No projects found"
-            description="Try adjusting your search or filter"
-          />
-        }
-      />
-
-      {/* Create project modal */}
-      <WuModal open={isCreateOpen} onOpenChange={setIsCreateOpen} size="md">
-        <WuModalHeader>New Project</WuModalHeader>
-        <WuModalContent>
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <WuInput
-              Label="Project Name"
               variant="outlined"
-              placeholder="e.g. Customer Satisfaction Q2 2025"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, name: e.target.value }))
-              }
-            />
-            <WuTextarea
-              Label="Description"
-              variant="outlined"
-              placeholder="What is this project measuring?"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, description: e.target.value }))
-              }
-            />
-            <WuSelect
-              data={statusFormOptions}
-              accessorKey={{ value: 'value', label: 'label' }}
-              value={statusFormOptions.find((o) => o.value === formData.status) ?? null}
-              onSelect={(v) => {
-                const item = v as { value: ProjectStatus; label: string };
-                setFormData((prev) => ({ ...prev, status: item.value }));
+              placeholder="Search for folders"
+              Icon={<span className="wm-search" />}
+              iconPosition="left"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+                setSelectedIds([]);
               }}
-              Label="Status"
-              variant="outlined"
+              className="w-72"
+            />
+            <WuButton
+              variant="iconOnly"
+              aria-label="Grid view"
+              Icon={<span className="wm-grid-view" />}
+              className={view === 'grid' ? 'text-accent' : 'text-ink-muted'}
+              onClick={() => setView('grid')}
+            />
+            <WuButton
+              variant="iconOnly"
+              aria-label="List view"
+              Icon={<span className="wm-view-list" />}
+              className={view === 'list' ? 'text-accent' : 'text-ink-muted'}
+              onClick={() => setView('list')}
+            />
+            <WuButton
+              variant="iconOnly"
+              aria-label="Archive"
+              Icon={<span className="wm-delete text-ink-muted" />}
+              onClick={() => {
+                if (selectedIds.length === 0) {
+                  router.push('/projects/recycle-bin');
+                  return;
+                }
+                handleArchive();
+              }}
             />
           </div>
+        </div>
+
+        <div className="mb-3 flex items-center gap-2">
+          <WuCheckbox checked={allPageSelected} onChange={handleSelectAll} />
+          <span className="text-sm text-ink">Select all</span>
+          {selectedIds.length > 0 && (
+            <span className="text-sm text-ink-muted">{selectedIds.length} items selected</span>
+          )}
+        </div>
+
+        {pageItems.length === 0 ? (
+          <EmptyState icon="wm-search-off" title="No folders found" description="Try adjusting your search" />
+        ) : view === 'list' ? (
+          <FoldersTable
+            folders={pageItems}
+            selectedIds={selectedIds}
+            onToggle={handleToggle}
+            noDataContent={<EmptyState icon="wm-folder-off" title="No folders found" />}
+          />
+        ) : (
+          <FoldersGrid folders={pageItems} selectedIds={selectedIds} onToggle={handleToggle} />
+        )}
+
+        {filtered.length >= 4 && (
+          <div className="mt-4 flex items-center justify-end gap-2 text-sm text-ink-muted">
+            <span>{filtered.length} folders</span>
+            {pageCount > 1 && (
+              <>
+                <WuButton variant="outline" size="sm" disabled={page === 0} onClick={() => { setPage((p) => p - 1); setSelectedIds([]); }}>
+                  Previous
+                </WuButton>
+                <span>
+                  {page + 1} / {pageCount}
+                </span>
+                <WuButton variant="outline" size="sm" disabled={page + 1 >= pageCount} onClick={() => { setPage((p) => p + 1); setSelectedIds([]); }}>
+                  Next
+                </WuButton>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <WuModal open={isCreateOpen} onOpenChange={setIsCreateOpen} size="md">
+        <WuModalHeader>New folder</WuModalHeader>
+        <WuModalContent>
+          <WuInput
+            Label="Folder name"
+            variant="outlined"
+            placeholder="e.g. My Folder"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+          />
         </WuModalContent>
         <WuModalFooter>
           <WuModalClose variant="secondary">Cancel</WuModalClose>
-          <WuButton onClick={handleCreate} disabled={!formData.name.trim()}>
-            Create Project
+          <WuButton onClick={handleCreate} disabled={!newName.trim()}>
+            Create folder
           </WuButton>
         </WuModalFooter>
       </WuModal>
 
-      {/* Archive confirmation */}
       <ConfirmModal
-        open={archiveTarget !== null}
-        onOpenChange={(open) => { if (!open) setArchiveTarget(null); }}
-        title="Archive project?"
-        description={`"${archiveTarget?.name}" will be archived and no longer accept new responses.`}
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        title="Archive selected folders?"
+        description="Selected folders will move to the recycle bin."
         confirmLabel="Archive"
         variant="critical"
-        onConfirm={handleArchive}
+        onConfirm={confirmArchive}
       />
     </div>
   );

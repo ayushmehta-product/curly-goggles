@@ -58,7 +58,7 @@ export default function FocusGroupAnalyzePage() {
           description="This focus group does not exist or has been removed from the prototype workspace."
           action={
             <Link href="/focus-group-studies" className="text-sm font-medium text-blue-600 hover:underline">
-              Back to Focus Groups
+              Back to focus groups
             </Link>
           }
         />
@@ -74,7 +74,7 @@ export default function FocusGroupAnalyzePage() {
         href="/focus-group-studies"
         className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
       >
-        <span className="wm-arrow-back text-base" /> Back to Focus Groups
+        <span className="wm-arrow-back text-base" /> Back to focus groups
       </Link>
 
       <PageHeader title={focusGroup.title} description="Highlights and key takeaways surfaced from this session." />

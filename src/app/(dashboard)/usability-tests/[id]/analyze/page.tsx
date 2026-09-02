@@ -34,7 +34,7 @@ export default function UsabilityTestAnalyzePage() {
         <EmptyState
           icon="wm-error-outline"
           title="Usability test not found"
-          action={<Link href="/usability-tests" className="text-sm font-medium text-blue-600 hover:underline">Back to Usability Tests</Link>}
+          action={<Link href="/usability-tests" className="text-sm font-medium text-blue-600 hover:underline">Back to usability tests</Link>}
         />
       </div>
     );
@@ -66,7 +66,7 @@ export default function UsabilityTestAnalyzePage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <Link href="/usability-tests" className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
-        <span className="wm-arrow-back text-base" /> Back to Usability Tests
+        <span className="wm-arrow-back text-base" /> Back to usability tests
       </Link>
 
       {/* Header */}

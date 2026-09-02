@@ -121,7 +121,7 @@ export function FocusGroupSessionWorkspace({
         href="/focus-group-studies"
         className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
       >
-        <span className="wm-arrow-back text-base" /> Back to Focus Groups
+        <span className="wm-arrow-back text-base" /> Back to focus groups
       </Link>
 
       <PageHeader title={focusGroup.title} description="Video, annotations, and analysis for this session." />

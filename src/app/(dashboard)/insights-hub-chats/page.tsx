@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { AiLabel } from '@/components/ui/AiLabel';
 import { InsightsChatPane } from '@/components/insights-chat/InsightsChatPane';
 import { scopeRefFromChatScope } from '@/components/insights-chat/chat-actions';
 import { INSIGHTS_HUB_CHATS_ROUTE, resolveChatScope, scopeLabel as getScopeLabel } from '@/components/insights-chat/chat-scope';
@@ -128,7 +129,7 @@ export default function InsightsHubChatsPage() {
     <div className="flex h-[calc(100dvh-48px)] min-h-0 flex-col overflow-hidden bg-surface-sunken px-6 py-6">
       <div className="shrink-0">
         <PageHeader
-          title="InsightsHub Chats"
+          title={<AiLabel>InsightsHub chats</AiLabel>}
           description="Review past conversations or start a new chat with InsightsHub."
         />
       </div>
@@ -148,7 +149,7 @@ export default function InsightsHubChatsPage() {
                 setRenamingId(undefined);
               }}
             >
-              New Chat
+              New chat
             </WuButton>
           </div>
 

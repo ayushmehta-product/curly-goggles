@@ -4,6 +4,8 @@ import { Suspense, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { SideNav } from '@/components/SideNav';
+import { DigsiteRail } from '@/components/projects/DigsiteRail';
+import { StudySecondNav } from '@/components/projects/StudySecondNav';
 import { InsightsChatWidget } from '@/components/insights-chat/InsightsChatWidget';
 import { loadChatThreads, saveChatThreads } from '@/components/insights-chat/chat-storage';
 import { MOCK_INSIGHTS_CHAT_THREADS } from '@/data/mock-insights-chats';
@@ -21,6 +23,17 @@ const WuToast = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuToast })),
   { ssr: false }
 );
+const WuFooter = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuFooter })),
+  { ssr: false }
+);
+
+function studyRouteParts(pathname: string): { folderId: string; studyId: string } | null {
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts[0] !== 'projects' || parts.length < 3) return null;
+  if (parts[1] === 'recycle-bin') return null;
+  return { folderId: parts[1], studyId: parts[2] };
+}
 
 export default function DashboardLayout({
   children,
@@ -42,13 +55,35 @@ export default function DashboardLayout({
     saveChatThreads(threads);
   }, [threads]);
 
+  const inStudies = pathname.startsWith('/projects');
+  const study = studyRouteParts(pathname);
+
   return (
     <div className="flex min-h-screen flex-col">
       <WuToast />
-      <WuAppHeader productName="User_Experience" categories={[]} />
-      <WuSidebar Sidebar={<SideNav />}>
-        <main className="flex-1">{children}</main>
-      </WuSidebar>
+      <div className="relative z-[300]">
+        <WuAppHeader productName="User_Experience" categories={[]} />
+      </div>
+      {inStudies ? (
+        <div className="flex min-h-0 flex-1 overflow-visible">
+          <DigsiteRail expandable={!study} />
+          {study && (
+            <Suspense fallback={null}>
+              <StudySecondNav folderId={study.folderId} studyId={study.studyId} />
+            </Suspense>
+          )}
+          <main className="relative z-[1] min-w-0 flex-1 bg-surface">{children}</main>
+        </div>
+      ) : (
+        <WuSidebar Sidebar={<SideNav />}>
+          <main className="flex-1">{children}</main>
+        </WuSidebar>
+      )}
+      {inStudies && (
+        <div className="relative z-[60]">
+          <WuFooter>QuestionPro Research Edition #QuestionPro UX</WuFooter>
+        </div>
+      )}
       <Suspense fallback={null}>
         <InsightsChatWidget
           threads={threads}

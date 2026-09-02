@@ -197,11 +197,11 @@ export default function UsabilityTestsPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <PageHeader
-        title="Usability Tests"
+        title="Usability tests"
         description="Create and manage behavioural tests on websites, SaaS products, and Figma prototypes."
         action={
           <WuButton onClick={() => router.push('/usability-tests/create')}>
-            <span className="wm-add" /> Create Test
+            <span className="wm-add" /> Create test
           </WuButton>
         }
       />

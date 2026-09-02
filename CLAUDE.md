@@ -6,10 +6,11 @@ Do not build backend APIs, database schema, auth, sync engine, or production int
 
 ## Core Concepts
 
-**Product:** User_Experience
+**Product:** User_Experience (QuestionPro **satellite** product)
 **What it does:** It is a product to manage qualitative research.
 **Primary users:** Researchers
 **Key entities:** Let's start with a simple side bar with the following things : Usability tests, Interviews, Focus groups and Studies. each has a list of studies/tests
+**Studies:** Studies **is Digsite**. Digsite patterns apply there. The rest of this product stays satellite.
 **Primary actions:** Currently, view the studies/tests
 
 
@@ -67,10 +68,15 @@ src/
 
 ## UI Library
 
-- Use QuestionPro WickUI exclusively. Docs: https://wick-ui-lib.pages.dev/?path=/docs/docs-getting-started--docs
+This is a QuestionPro **satellite product**. Use QuestionPro Wick UI exclusively (`@npm-questionpro/wick-ui-lib`).
+
+- React library document (adoption for satellite products): https://docs.google.com/document/d/1ws0CAVHZjEg26Lz6zrn5q3N0T8ANM_VrCp_LLYcK5PU/edit
+- Storybook (latest components and props): https://main.wick-ui-lib.pages.dev/?path=/docs/components-button--docs
+- Product Switcher Figma (app header layout and switcher): https://www.figma.com/design/wWgwoKbU7GdleUAtISNBEG/Product-Switcher-Consolidation?node-id=900-31510
 - Do not use shadcn/ui or any other component library
-- Tailwind is for layout, spacing, and minor styling only — not for building things WickUI already provides
-- Before using a WickUI component, check its props in the docs above
+- Tailwind is for layout, spacing, and minor styling only — not for building things Wick UI already provides
+- Before using a Wick UI component, check its props in Storybook
+- Shell chrome is `WuAppHeader` + `WuSidebar`. Configure the product switcher from the Figma file; do not rebuild it
 
 
 ## Scaffold & Reusable Patterns

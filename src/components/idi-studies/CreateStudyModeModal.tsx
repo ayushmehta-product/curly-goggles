@@ -77,7 +77,7 @@ export function CreateStudyModeModal({
 
   return (
     <WuModal open={open} onOpenChange={handleOpenChange} size="md">
-      <WuModalHeader>Create Study</WuModalHeader>
+      <WuModalHeader>Create study</WuModalHeader>
       <WuModalContent>
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-3">

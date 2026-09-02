@@ -398,7 +398,7 @@ function genericInsightsResponse(text: string, scope: Extract<ChatScope, { kind:
     };
   }
 
-  if (/summarize this project/.test(text) && scope.project) {
+  if (/summarize this (project|study|folder)/.test(text) && scope.project) {
     return {
       kind: 'text',
       text: `${scope.project.name}: ${scope.project.description} — status ${scope.project.status}, ${scope.project.responses} responses, owned by ${scope.project.owner}.`,

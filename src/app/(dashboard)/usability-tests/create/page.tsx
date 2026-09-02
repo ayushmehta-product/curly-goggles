@@ -131,7 +131,7 @@ export default function CreateUsabilityTestPage() {
         href="/usability-tests"
         className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
       >
-        <span className="wm-arrow-back text-base" /> Back to Usability Tests
+        <span className="wm-arrow-back text-base" /> Back to usability tests
       </Link>
       <PageHeader title={pageHeader.title} description={pageHeader.description} />
       <StepperProgress currentStep={currentStep} />

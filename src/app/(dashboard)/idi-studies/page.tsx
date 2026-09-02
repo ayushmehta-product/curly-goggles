@@ -284,11 +284,11 @@ export default function IdiStudiesPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <PageHeader
-        title="IDI Studies"
+        title="IDI studies"
         description="Create and manage moderated qualitative research studies."
         action={
           <WuButton onClick={() => setIsCreateModeOpen(true)}>
-            <span className="wm-add" /> Create Study
+            <span className="wm-add" /> Create study
           </WuButton>
         }
       />

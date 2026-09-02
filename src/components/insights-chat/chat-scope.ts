@@ -4,7 +4,7 @@ import { MOCK_STUDY_OPERATIONAL_OVERVIEWS } from '@/data/mock-study-overview';
 import { MOCK_MODERATED_WORKSPACE_SESSIONS, type ModeratedWorkspaceSession } from '@/data/mock-moderated-sessions';
 import { MOCK_FOCUS_GROUP_SESSIONS, type FocusGroupSession } from '@/data/mock-focus-group-session';
 import { MOCK_FOCUS_GROUP_WORKSPACES } from '@/data/mock-focus-group-scheduling';
-import { MOCK_PROJECTS } from '@/data/mock-projects';
+import { getFolderById, getStudyById } from '@/data/mock-projects';
 import type { InsightScopeRef } from '@/data/mock-ai-insights';
 import type { ChatScope, ChatSessionSource, ContextOverride } from './chat-types';
 
@@ -57,7 +57,7 @@ export const GENERIC_PROMPTS = [
   'Give me a study-level summary',
 ];
 
-const PROJECT_DETAIL_PROMPTS = ['Summarize this project', ...GENERIC_PROMPTS];
+const PROJECT_DETAIL_PROMPTS = ['Summarize this study', ...GENERIC_PROMPTS];
 
 const MULTI_SCOPE_PROMPTS = [
   'Do a thematic analysis across this selection',
@@ -180,22 +180,25 @@ function genericLabelForPathname(pathname: string): string {
   if (pathname.startsWith('/insights-hub-chats')) return 'your research';
   if (pathname.startsWith('/idi-studies')) return 'your interview studies';
   if (pathname.startsWith('/focus-group-studies')) return 'your focus groups';
-  if (pathname.startsWith('/projects')) return 'your projects';
+  if (pathname.startsWith('/projects')) return 'your studies';
   return 'this workspace';
 }
 
-function resolveProjectDetailScope(projectId: string) {
-  const project = MOCK_PROJECTS.find((item) => item.id === projectId);
+function resolveProjectDetailScope(folderId: string, studyId?: string) {
+  const study = studyId ? getStudyById(folderId, studyId) : undefined;
+  const folder = getFolderById(folderId);
+  const name = study?.name ?? folder?.name;
+  const description = study?.description ?? folder?.name ?? 'this folder';
   const scope: ChatScope = {
     kind: 'generic',
-    label: project?.name ?? 'this project',
-    project: project
+    label: name ?? 'this study',
+    project: name
       ? {
-          name: project.name,
-          description: project.description,
-          status: project.status,
-          owner: project.owner,
-          responses: project.responses,
+          name,
+          description: description || name,
+          status: study?.status ?? 'active',
+          owner: 'Ayush Mehta',
+          responses: study?.quests.reduce((sum, quest) => sum + quest.participantCount, 0) ?? 0,
         }
       : undefined,
   };
@@ -275,9 +278,9 @@ export function resolveChatScope(
     if (resolved) return resolved;
   }
 
-  const projectDetailMatch = pathname.match(/^\/projects\/([^/]+)$/);
+  const projectDetailMatch = pathname.match(/^\/projects\/([^/]+)(?:\/([^/]+))?/);
   if (projectDetailMatch) {
-    return resolveProjectDetailScope(projectDetailMatch[1]);
+    return resolveProjectDetailScope(projectDetailMatch[1], projectDetailMatch[2]);
   }
 
   return {

@@ -1,0 +1,67 @@
+# QuestionPro Design System Rules
+
+This is a QuestionPro **satellite** product. Wick UI is the required React library. **Studies is Digsite.** Other areas of this satellite product do not copy Digsite-only patterns unless asked.
+
+## Canonical sources
+
+1. Wick UI React document: https://docs.google.com/document/d/1ws0CAVHZjEg26Lz6zrn5q3N0T8ANM_VrCp_LLYcK5PU/edit
+2. Wick UI Storybook (latest): https://main.wick-ui-lib.pages.dev/?path=/docs/components-button--docs
+3. Product Switcher Figma: https://www.figma.com/design/wWgwoKbU7GdleUAtISNBEG/Product-Switcher-Consolidation?node-id=900-31510
+4. Contacts: Salauddin Omar Sifat, Farhad Hossain. Slack: `#wick-ui-lib`.
+
+Prefer Storybook ✅. Do not use shadcn/ui. Dynamic-import Wick UI components (`ssr: false`); see `AGENTS.md`.
+
+## Shell (every view)
+
+Header (`WuAppHeader`) + Sidebar (`WuSidebar`) + Workarea + Footer (`WuFooter`). Do not rebuild chrome or the product switcher.
+
+Z-index back → front: content 0–1 → title bar 2–5 → panels 10–49 → footer 50–99 → global nav 100–200 → header 200–500 → modals/darkbox 1000+. Modals sit on the darkbox.
+
+## Title header (workarea)
+
+Use `PageHeader`. White bar, 64px tall, 16px padding, 2px underline `#EEF3FB`. Main title is Heading 03 / Lead. Only two blocks: Title | Toolbar. Description sits under the bar, not inside it.
+
+Toolbar group, right-aligned, right-to-left order: `[icon buttons] [secondary] [primary]`.
+
+## Sidebar and lateral panels
+
+- Sidebar base: Gray 20 `#EEEEEE`. Internal padding 16px.
+- Active: white + 4px left stroke P Blue `#1B87E6`.
+- Secondary items: Gray 25 `#E8E8E8`. Hover: Gray 40 `#D8D8D8` + Lead `#545E6B`.
+- Drawers/panels: 16px padding. z-index 10–49.
+
+## Studies (Digsite)
+
+Studies **is Digsite**. Apply Digsite bulk-select and archive here.
+
+- Bulk-select: checkbox paired with **Select all**. Show **X items selected**. Selection is only for the **current page**.
+- Archive lives in the content toolbar (Gray 100 `#9B9B9B` icon). Archive view: **Back** + **Empty archive**, then the soft-deleted list.
+
+## Motion
+
+Pillars: simplicity, consistency, narrative, focus, feedback. Keep movement purposeful.
+
+- Rows: default → hover light gray → selected light blue → selected+hover deeper blue.
+- Buttons: `--btn-bg-hover` via `color-mix` (hue `#1B87E6` + mix `#1B327E` / `#1B3380`, `--delta: 18.5%`).
+- Overflow: 1px cutting lines at 8% of `#1B3380` when a list scrolls.
+- Chat inputs expand to 5 lines / 2 attachment rows, then scroll.
+- AI loading: QuestionPro logo loader. AI labels: `<AiLabel>` (sparkle right + `qp-shimmer`).
+
+## Color, cards, tables
+
+- Text: Lead `#545E6B` (`text-ink`). Secondary/disabled: Gray 100 `#9B9B9B` (`text-ink-muted`).
+- Semantic fills: success `#DFF2BF`, warning `#FEEFB3`, error `#FFBABA`.
+- Inputs: white + border `#D8D8D8`.
+- Modals: 16px radius, 4px outline.
+- Cards: 8px radius, nested controls 4px. Mobile card: 16px margin and vertical gap. Stacked cards: 32px bottom safe space.
+- Tables: 0px extra row padding. Count: hide if &lt; 3; optional 4–99; paginate at 100+ (100 per page).
+
+## Buttons and dropdowns
+
+- Primary: solid CTA. Secondary: light fill. Tertiary: no fill (`variant="link"` / outline).
+- Upgrade/lock: `#F5A300` / `#FF9F00` + padlock.
+- Radius: 4px default/small; 8px mobile.
+- Icon + text: 4px (`gap-1`). Icon wrapper 16px, glyph 18px.
+- Segmented control: max 5 exclusive choices.
+- Sentence case on all copy. Product names/acronyms unchanged.
+- Dropdown: max 7 items then scroll (item min 32px, menu max 226px). Offset from trigger: 0px. Use combobox if &gt; 15 options. Multi-select shows tags; overflow as `+N`.

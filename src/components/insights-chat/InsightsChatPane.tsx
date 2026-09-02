@@ -117,8 +117,8 @@ function EmptyState({
 
       {/* Tips card */}
       <WuCard rounded className="w-full bg-surface-sunken p-4 text-left wu-shadow-sm">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          How to Get the Best Results
+        <p className="mb-3 text-xs font-semibold text-ink-muted">
+          How to get the best results
         </p>
         <ul className="space-y-2.5">
           {[

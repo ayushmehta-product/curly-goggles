@@ -26,7 +26,7 @@ export default function FocusGroupSessionPage() {
           description="This focus group does not exist or has been removed from the prototype workspace."
           action={
             <Link href="/focus-group-studies" className="text-sm font-medium text-blue-600 hover:underline">
-              Back to Focus Groups
+              Back to focus groups
             </Link>
           }
         />

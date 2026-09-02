@@ -1,21 +1,53 @@
 @import "tailwindcss";
 @import '@npm-questionpro/wick-ui-icon/dist/wu-icon.css';
 
+:root {
+  --qp-lead: #545e6b;
+  --qp-grey-100: #9b9b9b;
+  --qp-p-blue: #1b87e6;
+  --qp-q-blue: #1b3380;
+  --qp-q-blue-alt: #1b327e;
+  --qp-title-line: #eef3fb;
+  --qp-gray-20: #eeeeee;
+  --qp-gray-25: #e8e8e8;
+  --qp-gray-40: #d8d8d8;
+  --qp-success-soft: #dff2bf;
+  --qp-warning-soft: #feefb3;
+  --qp-error-soft: #ffbaba;
+  --qp-upgrade: #f5a300;
+  --qp-sentiment-positive: #5ba83b;
+  --qp-sentiment-neutral: #f5a300;
+  --qp-sentiment-negative: #e25c5c;
+  --z-content: 1;
+  --z-title: 4;
+  --z-panel: 20;
+  --z-footer: 60;
+  --z-nav: 150;
+  --z-header: 300;
+  --z-modal: 1000;
+  --btn-hue: hsl(208, 80%, 50%);
+  --delta: 18.5%;
+  --mix: var(--qp-q-blue-alt);
+  --btn-bg-hover: color-mix(in hsl, var(--btn-hue), var(--mix) var(--delta));
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+}
+
 /*
  * Semantic color layer.
- * Every value resolves through a Wick UI library token (--wu-*, defined at :root
- * by wick-ui-lib/dist/style.css) so the page inherits the library's theming.
- * The library exposes RGB triplets; we wrap them in rgb() here.
- * Note: the library ships no dedicated "raised surface" (white) token, so
- * --color-surface is the single literal, isolated to this layer by design.
+ * QuestionPro tokens are the source of truth for ink, muted, and accent.
+ * Remaining surfaces still resolve through Wick UI library tokens (--wu-*).
  */
 @theme {
+  --font-sans: var(--font-fira-sans), "Fira Sans", ui-sans-serif, system-ui, sans-serif;
+
   /* Accent / primary action */
-  --color-accent: rgb(var(--wu-blue-p));
+  --color-accent: var(--qp-p-blue);
 
   /* Text */
-  --color-ink: rgb(var(--wu-gray-lead));
-  --color-ink-muted: rgb(var(--wu-gray-subtle));
+  --color-ink: var(--qp-lead);
+  --color-ink-muted: var(--qp-grey-100);
   --color-inverse: rgb(255 255 255);
 
   /* Borders / dividers */
@@ -29,6 +61,135 @@
   /* Success / positive */
   --color-success: rgb(var(--wu-green-deep));
   --color-success-surface: rgb(var(--wu-green-soft));
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--qp-lead);
+  line-height: 1.5;
+}
+
+.qp-btn {
+  background-color: var(--qp-p-blue);
+  color: #fff;
+  border-radius: var(--radius-sm);
+}
+
+.qp-btn:hover {
+  background-color: var(--btn-bg-hover);
+}
+
+.qp-ai-sparkle {
+  color: inherit;
+  font-size: 0.7em;
+  line-height: 1;
+}
+
+@keyframes qp-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes qp-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes qp-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.qp-enter {
+  animation: qp-fade-up 0.32s ease-out;
+}
+
+.qp-enter-left {
+  animation: qp-slide-in-left 0.28s ease-out;
+}
+
+.qp-card-hover {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.qp-card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--qp-q-blue) 10%, transparent);
+}
+
+.qp-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+}
+
+.qp-reveal-open {
+  grid-template-rows: 1fr;
+}
+
+.qp-reveal > * {
+  overflow: hidden;
+}
+
+a.text-accent,
+.qp-link {
+  color: var(--qp-p-blue);
+  transition: color 0.15s ease;
+}
+
+a.text-accent:hover,
+.qp-link:hover {
+  color: var(--qp-q-blue);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qp-enter,
+  .qp-enter-left {
+    animation: none;
+  }
+
+  .qp-reveal,
+  .qp-card-hover {
+    transition: none;
+  }
+
+  .qp-card-hover:hover {
+    transform: none;
+  }
+}
+
+.qp-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--qp-lead) 0%,
+    #ffffff 45%,
+    var(--qp-lead) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: qp-shimmer 2.4s ease-in-out infinite;
 }
 
 /* Accent-tint the date picker's built-in calendar icon through the accent token. */
@@ -50,4 +211,173 @@
 ._container_1cpdq_1 {
   height: auto !important;
   min-height: 100%;
+}
+
+.qp-heading-03 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--qp-lead);
+  line-height: 1.5;
+}
+
+.qp-title-bar {
+  position: relative;
+  z-index: var(--z-title);
+  display: flex;
+  height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #fff;
+  border-bottom: 2px solid var(--qp-title-line);
+  padding: 16px;
+}
+
+.qp-title-bar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.qp-rail {
+  position: relative;
+  z-index: var(--z-panel);
+  display: flex;
+  width: 56px;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 8px;
+  overflow: visible;
+  background: var(--qp-gray-20);
+  padding: 16px 8px;
+}
+
+.qp-rail-item {
+  position: relative;
+  display: flex;
+  height: 40px;
+  width: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--qp-lead);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.qp-rail-item:hover {
+  background: var(--qp-gray-40);
+  color: var(--qp-lead);
+}
+
+.qp-rail-item-active {
+  background: #fff;
+  box-shadow: inset 4px 0 0 var(--qp-p-blue);
+}
+
+.qp-rail-label {
+  pointer-events: none;
+  position: absolute;
+  left: calc(100% + 8px);
+  z-index: var(--z-nav);
+  white-space: nowrap;
+  border-radius: 4px;
+  background: var(--qp-q-blue);
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #fff;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+}
+
+.qp-rail-item:hover .qp-rail-label {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.qp-rail-expanded {
+  width: 220px;
+}
+
+.qp-rail-expanded .qp-rail-item {
+  width: auto;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.qp-rail-expanded .qp-rail-label {
+  position: static;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: 14px;
+}
+
+.qp-l2 {
+  position: relative;
+  z-index: var(--z-panel);
+  display: flex;
+  width: 220px;
+  min-height: 100%;
+  flex-shrink: 0;
+  flex-direction: column;
+  background: #fff;
+  border-right: 1px solid var(--qp-gray-40);
+  padding: 16px;
+}
+
+.qp-l2-collapsed {
+  width: 56px;
+  align-items: center;
+  padding: 16px 8px;
+}
+
+.qp-l2-item {
+  display: block;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--qp-lead);
+  transition: background-color 0.15s ease;
+}
+
+.qp-l2-item:hover {
+  background: var(--qp-gray-40);
+}
+
+.qp-l2-item-active {
+  background: #fff;
+  box-shadow: inset 4px 0 0 var(--qp-p-blue);
+  font-weight: 600;
+}
+
+.qp-row:hover {
+  background: var(--qp-gray-20);
+}
+
+.qp-row-selected {
+  background: var(--qp-title-line);
+}
+
+.qp-row-selected:hover {
+  background: color-mix(in srgb, var(--qp-p-blue) 18%, #fff);
+}
+
+.qp-card-depth {
+  border: 1px solid var(--qp-gray-40);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(27 51 128 / 0.06), 0 8px 24px rgb(27 51 128 / 0.06);
+}
+
+.qp-cut-line {
+  height: 1px;
+  background: color-mix(in srgb, var(--qp-q-blue) 8%, transparent);
 }

@@ -39,8 +39,15 @@ const WuButton = dynamic(
 import { WuButton } from '@npm-questionpro/wick-ui-lib';
 ```
 
-Before using any WickUI component, verify its exact prop names in the docs:
-https://wick-ui-lib.pages.dev/?path=/docs/docs-getting-started--docs
+This is a QuestionPro **satellite** product. Wick UI (`@npm-questionpro/wick-ui-lib`) is the required React library. Studies is Digsite.
+
+Before using any WickUI component, verify its exact prop names in Storybook (latest):
+https://main.wick-ui-lib.pages.dev/?path=/docs/components-button--docs
+
+Getting started: https://main.wick-ui-lib.pages.dev/?path=/docs/docs-getting-started--docs
+App header / product switcher: https://main.wick-ui-lib.pages.dev/?path=/docs/components-layouts-app-header--docs
+React library document (satellite adoption): https://docs.google.com/document/d/1ws0CAVHZjEg26Lz6zrn5q3N0T8ANM_VrCp_LLYcK5PU/edit
+Product Switcher Figma (header + switcher config): https://www.figma.com/design/wWgwoKbU7GdleUAtISNBEG/Product-Switcher-Consolidation?node-id=900-31510
 
 **WuTable generic cast:** Dynamic import loses WuTable's generic type parameter. Always cast `data` and `columns` when passing them to the dynamically imported WuTable:
 

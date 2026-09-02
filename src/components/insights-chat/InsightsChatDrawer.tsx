@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { formatRelativeDate } from '@/data/mock-utils';
+import { AiLabel } from '@/components/ui/AiLabel';
 import type { InsightScopeRef } from '@/data/mock-ai-insights';
 import { InsightsChatPane } from './InsightsChatPane';
 import type { ChatThread, ContextOverride } from './chat-types';
@@ -65,7 +66,9 @@ export function InsightsChatDrawer({
       <div className="flex h-full min-h-0 flex-col bg-surface">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line bg-surface px-6 py-4 pr-12 wu-shadow-sm">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-ink">InsightsHub Chat</p>
+            <p className="text-sm font-semibold text-ink">
+              <AiLabel>InsightsHub chat</AiLabel>
+            </p>
             <p className="mt-1 truncate text-xs text-ink-muted">
               {activeThread ? activeThread.scopeLabel : scopeLabel}
             </p>

@@ -1,17 +1,17 @@
 interface PageHeaderProps {
-  title: string;
+  title: React.ReactNode;
   description?: string;
   action?: React.ReactNode;
 }
 
 export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
-    <div className="flex items-start justify-between mb-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
-        {description && <p className="text-sm text-gray-500">{description}</p>}
+    <div className="mb-4">
+      <div className="qp-title-bar mb-4">
+        <h1 className="qp-heading-03 min-w-0 truncate">{title}</h1>
+        {action && <div className="qp-title-bar-toolbar shrink-0">{action}</div>}
       </div>
-      {action && <div className="flex items-center gap-2 shrink-0">{action}</div>}
+      {description && <p className="text-sm text-ink-muted">{description}</p>}
     </div>
   );
 }
