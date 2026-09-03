@@ -11,7 +11,7 @@ const firaSans = Fira_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "User_Experience",
+  title: "User Experience",
 };
 
 export default function RootLayout({

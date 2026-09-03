@@ -1,12 +1,27 @@
 'use client';
 
-import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 
-const WuButton = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
+const WuSidebarContent = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSidebarContent })),
+  { ssr: false }
+);
+const WuSidebarGroup = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSidebarGroup })),
+  { ssr: false }
+);
+const WuSidebarItem = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSidebarItem })),
+  { ssr: false }
+);
+const WuSidebarFooter = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSidebarFooter })),
+  { ssr: false }
+);
+const WuSidebarMenu = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSidebarMenu })),
   { ssr: false }
 );
 
@@ -15,36 +30,84 @@ interface StudySecondNavProps {
   studyId: string;
 }
 
-const GROUPS: { heading: string; items: { label: string; href: (base: string) => string; match: (path: string, view: string | null) => boolean }[] }[] = [
+const GROUPS: {
+  heading: string;
+  items: {
+    label: string;
+    icon: string;
+    href: (base: string) => string;
+    match: (path: string, view: string | null) => boolean;
+  }[];
+}[] = [
   {
     heading: 'Management',
     items: [
-      { label: 'Moderation', href: (base) => base, match: (path, view) => !path.includes('/analytics') && !view },
-      { label: 'Participants', href: (base) => `${base}?view=participants`, match: (_p, view) => view === 'participants' },
-      { label: 'Panel', href: (base) => `${base}?view=panel`, match: (_p, view) => view === 'panel' },
+      {
+        label: 'Moderation',
+        icon: 'wc-responses',
+        href: (base) => base,
+        match: (path, view) => !path.includes('/analytics') && !view,
+      },
+      {
+        label: 'Participants',
+        icon: 'wc-audience',
+        href: (base) => `${base}?view=participants`,
+        match: (_p, view) => view === 'participants',
+      },
+      {
+        label: 'Panel',
+        icon: 'wc-members',
+        href: (base) => `${base}?view=panel`,
+        match: (_p, view) => view === 'panel',
+      },
     ],
   },
   {
     heading: 'Data',
     items: [
-      { label: 'Analytics', href: (base) => `${base}/analytics`, match: (path) => path.includes('/analytics') },
-      { label: 'My quotes', href: (base) => `${base}?view=quotes`, match: (_p, view) => view === 'quotes' },
+      {
+        label: 'Analytics',
+        icon: 'wc-analytics',
+        href: (base) => `${base}/analytics`,
+        match: (path) => path.includes('/analytics'),
+      },
+      {
+        label: 'My quotes',
+        icon: 'wm-format-quote',
+        href: (base) => `${base}?view=quotes`,
+        match: (_p, view) => view === 'quotes',
+      },
     ],
   },
   {
     heading: 'Documents',
     items: [
-      { label: 'Media library', href: (base) => `${base}?view=media`, match: (_p, view) => view === 'media' },
-      { label: 'Reports', href: (base) => `${base}?view=reports`, match: (_p, view) => view === 'reports' },
-      { label: 'Documents', href: (base) => `${base}?view=documents`, match: (_p, view) => view === 'documents' },
+      {
+        label: 'Media library',
+        icon: 'wc-media-library',
+        href: (base) => `${base}?view=media`,
+        match: (_p, view) => view === 'media',
+      },
+      {
+        label: 'Reports',
+        icon: 'wc-reports',
+        href: (base) => `${base}?view=reports`,
+        match: (_p, view) => view === 'reports',
+      },
+      {
+        label: 'Documents',
+        icon: 'wc-document',
+        href: (base) => `${base}?view=documents`,
+        match: (_p, view) => view === 'documents',
+      },
     ],
   },
 ];
 
 const PINNED = [
-  { label: 'Messages', view: 'messages' },
-  { label: 'Logs', view: 'logs' },
-  { label: 'Admin', view: 'admin' },
+  { label: 'Messages', view: 'messages', icon: 'wc-live-chat' },
+  { label: 'Logs', view: 'logs', icon: 'wc-history' },
+  { label: 'Admin', view: 'admin', icon: 'wc-admin' },
 ];
 
 export function StudySecondNav({ folderId, studyId }: StudySecondNavProps) {
@@ -52,61 +115,37 @@ export function StudySecondNav({ folderId, studyId }: StudySecondNavProps) {
   const searchParams = useSearchParams();
   const view = searchParams.get('view');
   const base = `/projects/${folderId}/${studyId}`;
-  const [collapsed, setCollapsed] = useState(false);
-
-  if (collapsed) {
-    return (
-      <aside className="qp-l2 qp-l2-collapsed">
-        <WuButton
-          variant="iconOnly"
-          aria-label="Expand workspace sidebar"
-          Icon={<span className="wm-menu" />}
-          onClick={() => setCollapsed(false)}
-        />
-      </aside>
-    );
-  }
 
   return (
-    <aside className="qp-l2">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <p className="border-l-4 border-accent pl-3 text-sm font-semibold text-ink">Workspace</p>
-        <WuButton
-          variant="iconOnly"
-          aria-label="Collapse workspace sidebar"
-          Icon={<span className="wm-menu" />}
-          onClick={() => setCollapsed(true)}
-        />
-      </div>
-      {GROUPS.map((group) => (
-        <div key={group.heading} className="mb-6">
-          <p className="mb-1 px-3 text-xs text-ink-muted">{group.heading}</p>
-          {group.items.map((item) => {
-            const href = item.href(base);
-            const active = item.match(pathname, view);
-            return (
-              <Link
+    <>
+      <WuSidebarContent>
+        {GROUPS.map((group) => (
+          <WuSidebarGroup key={group.heading} label={group.heading}>
+            {group.items.map((item) => (
+              <WuSidebarItem
                 key={item.label}
-                href={href}
-                className={`qp-l2-item ${active ? 'qp-l2-item-active' : ''}`}
+                Icon={<span className={item.icon} />}
+                isActive={item.match(pathname, view)}
               >
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-      ))}
-      <div className="mt-auto border-t border-[var(--qp-gray-40)] pt-3">
-        {PINNED.map((item) => (
-          <Link
-            key={item.view}
-            href={`${base}?view=${item.view}`}
-            className={`qp-l2-item ${view === item.view ? 'qp-l2-item-active' : ''}`}
-          >
-            {item.label}
-          </Link>
+                <Link href={item.href(base)}>{item.label}</Link>
+              </WuSidebarItem>
+            ))}
+          </WuSidebarGroup>
         ))}
-      </div>
-    </aside>
+      </WuSidebarContent>
+      <WuSidebarFooter>
+        <WuSidebarMenu>
+          {PINNED.map((item) => (
+            <WuSidebarItem
+              key={item.view}
+              Icon={<span className={item.icon} />}
+              isActive={view === item.view}
+            >
+              <Link href={`${base}?view=${item.view}`}>{item.label}</Link>
+            </WuSidebarItem>
+          ))}
+        </WuSidebarMenu>
+      </WuSidebarFooter>
+    </>
   );
 }

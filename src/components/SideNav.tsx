@@ -12,10 +12,6 @@ const WuSidebarItem = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSidebarItem })),
   { ssr: false }
 );
-const WuSidebarTrigger = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSidebarTrigger })),
-  { ssr: false }
-);
 
 const NAV_ITEMS = [
   {
@@ -57,9 +53,6 @@ export function SideNav() {
 
   return (
     <WuSidebarContent>
-      <div className="mb-2 px-2">
-        <WuSidebarTrigger aria-label="Collapse sidebar" />
-      </div>
       {NAV_ITEMS.map((item) => (
         <WuSidebarItem
           key={item.href}

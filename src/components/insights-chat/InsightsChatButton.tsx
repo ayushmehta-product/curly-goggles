@@ -13,7 +13,7 @@ interface InsightsChatButtonProps {
 
 export function InsightsChatButton({ onClick }: InsightsChatButtonProps) {
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-6 right-6 z-[80]">
       <WuButton
         variant="iconOnly"
         color="primary"

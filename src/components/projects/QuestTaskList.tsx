@@ -3,9 +3,10 @@
 import dynamic from 'next/dynamic';
 import type { QuestTask } from '@/data/mock-projects';
 import { TreeTestingSetup } from '@/components/projects/TreeTestingSetup';
+import { CardSortingSetup } from '@/components/projects/CardSortingSetup';
 import { taskTypeIcon } from '@/components/projects/AddTaskPanel';
 import { defaultTreeTestingConfig } from '@/data/mock-tree-testing';
-import { cloneTree } from '@/data/tree-utils';
+import { defaultCardSortingConfig } from '@/data/mock-card-sorting';
 
 const WuMenu = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuMenu })),
@@ -66,6 +67,7 @@ export function QuestTaskList({
       {tasks.map((task, index) => {
         const expanded = expandedId === task.id;
         const isTree = task.type === 'tree-testing';
+        const isCardSort = task.type === 'card-sorting';
         return (
           <WuCard
             key={task.id}
@@ -114,7 +116,7 @@ export function QuestTaskList({
                     }
                     align="end"
                   >
-                    {isTree && onAnalyze && (
+                    {(isTree || isCardSort) && onAnalyze && (
                       <WuMenuItem onSelect={() => onAnalyze(task)}>View analysis</WuMenuItem>
                     )}
                     <WuMenuItem onSelect={() => onDuplicate(task)}>Duplicate</WuMenuItem>
@@ -143,13 +145,13 @@ export function QuestTaskList({
                     )}
                     {isTree ? (
                       <TreeTestingSetup
-                        config={
-                          task.treeTesting ?? {
-                            tree: cloneTree(defaultTreeTestingConfig().tree),
-                            findabilityTasks: defaultTreeTestingConfig().findabilityTasks,
-                          }
-                        }
+                        config={task.treeTesting ?? defaultTreeTestingConfig()}
                         onChange={(treeTesting) => onChange({ ...task, treeTesting })}
+                      />
+                    ) : isCardSort ? (
+                      <CardSortingSetup
+                        config={task.cardSorting ?? defaultCardSortingConfig()}
+                        onChange={(cardSorting) => onChange({ ...task, cardSorting })}
                       />
                     ) : (
                       <p className="text-sm text-ink-muted">

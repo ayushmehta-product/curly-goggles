@@ -15,6 +15,7 @@ export const TASK_TYPE_OPTIONS: {
   { type: 'voting', label: 'Voting', icon: 'wm-thumb-up' },
   { type: 'photo-journal', label: 'Photo journal', icon: 'wm-photo-camera' },
   { type: 'tree-testing', label: 'Tree testing', icon: 'wm-account-tree' },
+  { type: 'card-sorting', label: 'Card sorting', icon: 'wm-view-agenda' },
 ];
 
 interface AddTaskPanelProps {

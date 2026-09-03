@@ -11,6 +11,7 @@ import { QuestTaskList } from '@/components/projects/QuestTaskList';
 import { AddTaskPanel, taskTypeLabel } from '@/components/projects/AddTaskPanel';
 import { getFolderById, getQuestById, type QuestTask, type QuestTaskType } from '@/data/mock-projects';
 import { defaultTreeTestingConfig } from '@/data/mock-tree-testing';
+import { cloneCardSortingConfig, defaultCardSortingConfig } from '@/data/mock-card-sorting';
 import { cloneTree } from '@/data/tree-utils';
 
 const WuButton = dynamic(
@@ -74,13 +75,8 @@ export default function QuestBuilderPage() {
       id: `t-${Date.now()}`,
       title: nextTitle(type),
       type,
-      treeTesting:
-        type === 'tree-testing'
-          ? {
-              tree: cloneTree(defaultTreeTestingConfig().tree),
-              findabilityTasks: defaultTreeTestingConfig().findabilityTasks,
-            }
-          : undefined,
+      treeTesting: type === 'tree-testing' ? defaultTreeTestingConfig() : undefined,
+      cardSorting: type === 'card-sorting' ? defaultCardSortingConfig() : undefined,
     };
     setTasks((current) => [...current, task]);
     setExpandedId(task.id);
@@ -180,6 +176,7 @@ export default function QuestBuilderPage() {
                         findabilityTasks: task.treeTesting.findabilityTasks,
                       }
                     : undefined,
+                  cardSorting: task.cardSorting ? cloneCardSortingConfig(task.cardSorting) : undefined,
                 };
                 setTasks((current) => [...current, copy]);
                 showToast({ message: `"${task.title}" duplicated`, variant: 'success' });

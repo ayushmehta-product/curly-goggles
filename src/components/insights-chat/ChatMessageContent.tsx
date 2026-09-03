@@ -67,7 +67,7 @@ function QuoteCard({ quote, scope }: { quote: ChatQuote; scope?: InsightScopeRef
   const canSeek = seekSeconds !== undefined && (scope?.kind === 'idi-session' || scope?.kind === 'fg-session');
 
   return (
-    <WuCard rounded className="bg-surface-sunken p-4 wu-shadow-sm">
+    <WuCard rounded className="bg-surface-sunken p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-ink-muted">
           {quote.speaker} &middot; {quote.timestamp}
@@ -78,7 +78,7 @@ function QuoteCard({ quote, scope }: { quote: ChatQuote; scope?: InsightScopeRef
           </WuButton>
         )}
       </div>
-      <p className="mt-2 text-sm leading-6 text-ink">&ldquo;{quote.text}&rdquo;</p>
+      <p className="mt-2 text-sm text-ink">&ldquo;{quote.text}&rdquo;</p>
     </WuCard>
   );
 }
@@ -105,7 +105,7 @@ function ThemeBlock({ theme, scope }: { theme: { title: string; quotes: ChatQuot
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{theme.title}</p>
+        <p className="text-sm font-semibold text-ink">{theme.title}</p>
         <div className="flex items-center gap-2">
           {!scope && <NoScopeHint />}
           <WuButton
@@ -158,24 +158,22 @@ function TagsBlock({ tags: initialTags, note, scope }: { tags: string[]; note?: 
       {/* Removable chips */}
       <div className="flex flex-wrap gap-2">
         {workingTags.map((tag) => (
-          <span
-            key={tag}
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition ${
-              saved
-                ? 'border-green-200 bg-green-50 text-green-700'
-                : 'border-line bg-surface text-ink hover:border-ink-muted'
-            }`}
-          >
-            {tag}
+          <span key={tag} className="inline-flex items-center gap-1">
+            <WuChip
+              size="sm"
+              variant="secondary"
+              color={saved ? 'success' : undefined}
+            >
+              {tag}
+            </WuChip>
             {!saved && (
-              <button
-                type="button"
+              <WuButton
+                variant="iconOnly"
+                size="sm"
                 aria-label={`Remove tag ${tag}`}
-                className="ml-0.5 flex items-center text-ink-muted hover:text-error"
+                Icon={<span className="wm-close" />}
                 onClick={() => handleRemove(tag)}
-              >
-                <span className="wm-close text-xs" aria-hidden="true" />
-              </button>
+              />
             )}
           </span>
         ))}
@@ -190,7 +188,7 @@ function TagsBlock({ tags: initialTags, note, scope }: { tags: string[]; note?: 
           <div className="min-w-0 flex-1">
             <WuInput
               variant="outlined"
-              placeholder="Add a custom tag..."
+              placeholder="Add a custom tag"
               value={addValue}
               onChange={(e) => setAddValue(e.target.value)}
               onKeyDown={(e) => {
@@ -213,9 +211,9 @@ function TagsBlock({ tags: initialTags, note, scope }: { tags: string[]; note?: 
 
       {/* AI explanatory note */}
       {note && (
-        <WuCard rounded className="flex gap-2.5 bg-surface-sunken p-3 wu-shadow-sm">
-          <span className="wm-auto-awesome mt-0.5 shrink-0 text-sm text-accent" aria-hidden="true" />
-          <p className="text-xs leading-5 text-ink-muted">{note}</p>
+        <WuCard rounded className="flex items-start gap-1 bg-surface-sunken p-3">
+          <span className="wm-auto-awesome mt-0.5 shrink-0 text-[18px] text-accent" aria-hidden="true" />
+          <p className="text-sm text-ink-muted">{note}</p>
         </WuCard>
       )}
 
@@ -322,7 +320,7 @@ function SavedItemRow({
   const [draft, setDraft] = useState(primaryText);
 
   return (
-    <WuCard rounded className="p-4 wu-shadow-sm">
+    <WuCard rounded className="p-4">
       {editing ? (
         <div className="flex items-center gap-2">
           <WuInput
@@ -348,10 +346,10 @@ function SavedItemRow({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">{primaryText}</p>
-            {secondaryText && <p className="mt-1 text-xs leading-5 text-ink-muted">&ldquo;{secondaryText}&rdquo;</p>}
+            {secondaryText && <p className="mt-1 text-sm text-ink-muted">&ldquo;{secondaryText}&rdquo;</p>}
           </div>
           <WuChip size="sm" variant="secondary" color={status === 'validated' ? 'success' : undefined}>
-            {status}
+            {status.charAt(0).toUpperCase() + status.slice(1)}
           </WuChip>
         </div>
       )}
@@ -387,7 +385,7 @@ function SavedItemsBlock({ themes, tags, annotations }: { themes: AiTheme[]; tag
     <div className="space-y-4">
       {themes.length > 0 && (
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Themes</p>
+          <p className="mb-2 text-sm font-semibold text-ink">Themes</p>
           <div className="space-y-2">
             {themes.map((theme) => (
               <SavedItemRow
@@ -417,7 +415,7 @@ function SavedItemsBlock({ themes, tags, annotations }: { themes: AiTheme[]; tag
       )}
       {tags.length > 0 && (
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Tags</p>
+          <p className="mb-2 text-sm font-semibold text-ink">Tags</p>
           <div className="space-y-2">
             {tags.map((tag) => (
               <SavedItemRow
@@ -446,7 +444,7 @@ function SavedItemsBlock({ themes, tags, annotations }: { themes: AiTheme[]; tag
       )}
       {annotations.length > 0 && (
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Annotations</p>
+          <p className="mb-2 text-sm font-semibold text-ink">Annotations</p>
           <div className="space-y-2">
             {annotations.map((annotation) => (
               <SavedItemRow
@@ -480,17 +478,17 @@ function SavedItemsBlock({ themes, tags, annotations }: { themes: AiTheme[]; tag
 
 export function ChatMessageContent({ response, scope = null }: { response: ChatResponse; scope?: InsightScopeRef | null }) {
   if (response.kind === 'text') {
-    return <p className="text-sm leading-6 text-ink">{response.text}</p>;
+    return <p className="text-sm text-ink">{response.text}</p>;
   }
 
   if (response.kind === 'list') {
     return (
       <div>
-        <p className="text-sm leading-6 text-ink">{response.intro}</p>
+        <p className="text-sm text-ink">{response.intro}</p>
         {response.items.length > 0 && (
           <ul className="mt-2.5 space-y-1.5">
             {response.items.map((item, index) => (
-              <li key={index} className="flex gap-2 text-sm leading-6 text-ink">
+              <li key={index} className="flex gap-2 text-sm text-ink">
                 <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                 <span>{item}</span>
               </li>
@@ -504,12 +502,12 @@ export function ChatMessageContent({ response, scope = null }: { response: ChatR
   if (response.kind === 'rollup') {
     return (
       <div>
-        <p className="text-sm leading-6 text-ink">{response.intro}</p>
+        <p className="text-sm text-ink">{response.intro}</p>
         <div className="mt-3 space-y-2">
           {response.items.map((item, index) => (
-            <WuCard key={index} rounded className="bg-surface-sunken p-4 wu-shadow-sm">
+            <WuCard key={index} rounded className="bg-surface-sunken p-4">
               <p className="text-xs font-semibold text-ink">{item.label}</p>
-              <p className="mt-1 text-sm leading-6 text-ink">{item.detail}</p>
+              <p className="mt-1 text-sm text-ink">{item.detail}</p>
             </WuCard>
           ))}
         </div>
@@ -520,7 +518,7 @@ export function ChatMessageContent({ response, scope = null }: { response: ChatR
   if (response.kind === 'quotes') {
     return (
       <div>
-        <p className="text-sm leading-6 text-ink">{response.intro}</p>
+        <p className="text-sm text-ink">{response.intro}</p>
         {response.quotes.length > 0 && (
           <div className="mt-3 space-y-2">
             {response.quotes.map((quote, index) => (
@@ -535,7 +533,7 @@ export function ChatMessageContent({ response, scope = null }: { response: ChatR
   if (response.kind === 'thematic') {
     return (
       <div>
-        <p className="text-sm leading-6 text-ink">{response.intro}</p>
+        <p className="text-sm text-ink">{response.intro}</p>
         <div className="mt-3 space-y-4">
           {response.themes.map((theme) => (
             <ThemeBlock key={theme.title} theme={theme} scope={scope} />
@@ -548,7 +546,7 @@ export function ChatMessageContent({ response, scope = null }: { response: ChatR
   if (response.kind === 'tags') {
     return (
       <div>
-        <p className="text-sm leading-6 text-ink">{response.intro}</p>
+        <p className="text-sm text-ink">{response.intro}</p>
         <TagsBlock tags={response.tags} note={response.note} scope={scope} />
       </div>
     );
@@ -557,7 +555,7 @@ export function ChatMessageContent({ response, scope = null }: { response: ChatR
   if (response.kind === 'annotation-suggestion') {
     return (
       <div>
-        <p className="text-sm leading-6 text-ink">{response.intro}</p>
+        <p className="text-sm text-ink">{response.intro}</p>
         <div className="mt-3">
           <AnnotationSuggestionBlock excerpt={response.excerpt} noteDraft={response.noteDraft} scope={scope} />
         </div>
@@ -568,7 +566,7 @@ export function ChatMessageContent({ response, scope = null }: { response: ChatR
   if (response.kind === 'saved-items') {
     return (
       <div>
-        <p className="text-sm leading-6 text-ink">{response.intro}</p>
+        <p className="text-sm text-ink">{response.intro}</p>
         <div className="mt-3">
           <SavedItemsBlock themes={response.themes} tags={response.tags} annotations={response.annotations} />
         </div>
@@ -581,12 +579,12 @@ export function ChatMessageContent({ response, scope = null }: { response: ChatR
 
     return (
       <div>
-        <p className="text-sm leading-6 text-ink">{response.intro}</p>
+        <p className="text-sm text-ink">{response.intro}</p>
         {response.entries.length === 0 ? (
           <p className="mt-2 text-sm text-ink-muted">Not enough transcript text to analyze yet.</p>
         ) : (
           <>
-            <WuCard rounded className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2 bg-surface-sunken p-4 wu-shadow-sm">
+            <WuCard rounded className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2 bg-surface-sunken p-4">
               {response.entries.map((entry) => (
                 <span
                   key={entry.word}
@@ -616,11 +614,11 @@ export function ChatMessageContent({ response, scope = null }: { response: ChatR
 
   return (
     <div>
-      <p className="text-sm leading-6 text-ink">{response.intro}</p>
+      <p className="text-sm text-ink">{response.intro}</p>
       <div className="mt-3 space-y-3">
         {response.matches.map(({ keyPoint, quote }, index) => (
           <div key={index}>
-            <div className="flex gap-2 text-sm leading-6 text-ink">
+            <div className="flex gap-2 text-sm text-ink">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
               <span>{keyPoint}</span>
             </div>

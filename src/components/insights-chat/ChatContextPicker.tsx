@@ -30,7 +30,7 @@ export function ChatContextPicker({ override, onChange }: ChatContextPickerProps
   const count = selected.length;
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <div className="min-w-0 flex-1">
         <WuCombobox
           data={options}
@@ -38,7 +38,7 @@ export function ChatContextPicker({ override, onChange }: ChatContextPickerProps
           multiple
           enableSearch
           variant="outlined"
-          placeholder="Target specific studies, sessions, or focus groups..."
+          placeholder="Target specific studies, sessions, or focus groups"
           value={selected}
           onSelect={(value) => {
             const nextSelection = (Array.isArray(value) ? value : value ? [value] : []) as ContextPickerOption[];

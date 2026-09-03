@@ -1,5 +1,8 @@
 import type { TreeTestingConfig } from '@/data/mock-tree-testing';
-import { defaultTreeTestingConfig } from '@/data/mock-tree-testing';
+import { MOCK_DUNKIN_TREE, MOCK_FINDABILITY_TASKS } from '@/data/mock-tree-testing';
+import { cloneTree } from '@/data/tree-utils';
+import type { CardSortingConfig } from '@/data/mock-card-sorting';
+import { demoCardSortingConfig } from '@/data/mock-card-sorting';
 
 export type StudyStatus = 'live' | 'closed' | 'draft';
 export type QuestType = 'Standard' | 'Diary';
@@ -13,7 +16,8 @@ export type QuestTaskType =
   | 'video'
   | 'voting'
   | 'photo-journal'
-  | 'tree-testing';
+  | 'tree-testing'
+  | 'card-sorting';
 
 export interface QuestTask {
   id: string;
@@ -22,6 +26,7 @@ export interface QuestTask {
   description?: string;
   showDescription?: boolean;
   treeTesting?: TreeTestingConfig;
+  cardSorting?: CardSortingConfig;
 }
 
 export interface StudyQuest {
@@ -148,7 +153,7 @@ export const MOCK_FOLDER_STUDIES: FolderStudy[] = [
     type: 'Standard',
     status: 'live',
     description:
-      'What did the ending mean for the characters you grew up with? Help us understand how viewers made sense of the finale, which moments felt earned, and where the story still feels unresolved.',
+      "Let's settle this once and for all. What do you think about the ending of Stranger Things? Is El alive or has Mike just . . . completely lost it?",
     heroImage: HERO_STRANGER,
     heroTitle: 'Stranger things - Finale',
     introductoryVideoName: undefined,
@@ -164,28 +169,66 @@ export const MOCK_FOLDER_STUDIES: FolderStudy[] = [
         participantCount: 24,
         stepCount: 8,
         thumbnail: THUMB_FINALE,
+        startsAt: '2026-01-16T18:35:00',
+        description: 'Please proceed through the tasks given in the quest. Thank you!',
         tasks: [
-          { id: 't001', title: 'Opening sentiment' },
-          { id: 't002', title: 'Character fates' },
+          {
+            id: 't001',
+            title: 'Wait... Where Were All the Demogorgons?',
+            type: 'conversation',
+            showDescription: true,
+            description:
+              'In the final battle of Season 5, the absence of the Demogorgons was hard to miss. Did you notice the lack of demo-creatures, and did it bother you?',
+          },
+          {
+            id: 't002',
+            title: "Was Will's coming out scene poorly timed?",
+            type: 'conversation',
+          },
+          {
+            id: 't003',
+            title: "Woke messaging ruined Season 5",
+            type: 'conversation',
+          },
+          {
+            id: 't004',
+            title: 'Hot take: what was your most controversial opinion',
+            type: 'conversation',
+          },
+          { id: 't005', title: 'Final quest', type: 'survey' },
+          { id: 't006', title: 'Survey 01', type: 'survey' },
+          { id: 't007', title: 'PhotoJournal 01', type: 'photo-journal' },
         ],
       },
       {
         id: 'q002',
         title: 'Quest 1',
         type: 'Diary',
-        status: 'closed',
+        status: 'live',
         participantCount: 12,
         stepCount: 5,
         thumbnail: THUMB_DIARY,
         startsAt: '2026-01-16T18:35:00',
-        description: '',
+        description: 'Please proceed through the tasks given in the quest. Thank you!',
         tasks: [
           { id: 't010', title: 'Survey 01', type: 'survey' },
           {
             id: 't011',
             title: 'Tree testing 01',
             type: 'tree-testing',
-            treeTesting: defaultTreeTestingConfig(),
+            treeTesting: {
+              tree: cloneTree(MOCK_DUNKIN_TREE),
+              findabilityTasks: MOCK_FINDABILITY_TASKS.map((task) => ({
+                ...task,
+                correctLeafIds: [...task.correctLeafIds],
+              })),
+            },
+          },
+          {
+            id: 't012',
+            title: 'Card sorting 01',
+            type: 'card-sorting',
+            cardSorting: demoCardSortingConfig(),
           },
         ],
       },
@@ -197,6 +240,7 @@ export const MOCK_FOLDER_STUDIES: FolderStudy[] = [
         participantCount: 18,
         stepCount: 6,
         thumbnail: THUMB_FINALE,
+        startsAt: '2026-01-20T10:00:00',
         tasks: [{ id: 't020', title: 'Scene recall' }],
       },
       {
@@ -206,6 +250,7 @@ export const MOCK_FOLDER_STUDIES: FolderStudy[] = [
         status: 'draft',
         participantCount: 0,
         stepCount: 4,
+        startsAt: '2026-02-10T09:00:00',
         tasks: [],
       },
       {
@@ -216,6 +261,7 @@ export const MOCK_FOLDER_STUDIES: FolderStudy[] = [
         participantCount: 9,
         stepCount: 3,
         thumbnail: THUMB_DIARY,
+        startsAt: '2026-02-01T14:00:00',
         tasks: [{ id: 't030', title: 'Watch log' }],
       },
     ],
@@ -720,4 +766,17 @@ export function getQuestById(
   const quest = study.quests.find((item) => item.id === questId);
   if (!quest) return undefined;
   return { study, quest };
+}
+
+export function getTaskById(
+  folderId: string,
+  studyId: string,
+  questId: string,
+  taskId: string
+): { study: FolderStudy; quest: StudyQuest; task: QuestTask } | undefined {
+  const found = getQuestById(folderId, studyId, questId);
+  if (!found) return undefined;
+  const task = found.quest.tasks.find((item) => item.id === taskId);
+  if (!task) return undefined;
+  return { ...found, task };
 }

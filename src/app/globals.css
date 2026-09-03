@@ -213,6 +213,26 @@ a.text-accent:hover,
   min-height: 100%;
 }
 
+/* Nested Wick UI study sidebar sits beside the product rail, not on top of it. */
+.qp-study-shell {
+  --qp-l1-width: 256px;
+}
+
+.qp-study-shell[data-l1='collapsed'] {
+  --qp-l1-width: 3rem;
+}
+
+.qp-study-shell .qp-l2-sidebar {
+  left: var(--qp-l1-width) !important;
+  transition:
+    left 150ms linear,
+    width 150ms linear;
+}
+
+.qp-study-shell .wu-group\/sidebar-wrapper .wu-group\/sidebar-wrapper {
+  min-height: 0;
+}
+
 .qp-heading-03 {
   font-size: 20px;
   font-weight: 600;

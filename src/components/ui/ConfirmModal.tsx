@@ -55,7 +55,7 @@ export function ConfirmModal({
     <WuModal open={open} onOpenChange={onOpenChange} variant={variant} size="sm">
       <WuModalHeader>{title}</WuModalHeader>
       <WuModalContent>
-        <p className="text-sm text-gray-600">{description}</p>
+        <p className="text-sm text-ink">{description}</p>
       </WuModalContent>
       <WuModalFooter>
         <WuModalClose variant="secondary">Cancel</WuModalClose>

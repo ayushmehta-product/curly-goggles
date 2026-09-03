@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { InsightScopeRef } from '@/data/mock-ai-insights';
+import { AiLabel } from '@/components/ui/AiLabel';
 import { ChatContextPicker } from './ChatContextPicker';
 import { ChatMessageContent } from './ChatMessageContent';
 import type { ChatThread, ContextOverride } from './chat-types';
@@ -19,8 +20,8 @@ const WuHeading = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuHeading })),
   { ssr: false }
 );
-const WuInput = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuInput })),
+const WuTextarea = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTextarea })),
   { ssr: false }
 );
 const WuScrollArea = dynamic(
@@ -65,24 +66,18 @@ function promptIcon(prompt: string): string {
 
 function PromptPill({
   prompt,
-  pending,
   onSelect,
 }: {
   prompt: string;
-  pending: boolean;
   onSelect: () => void;
 }) {
   return (
     <WuButton
-      variant="rounded"
+      variant="secondary"
       size="sm"
-      color="neutral"
-      selected={pending}
-      loading={pending}
-      disabled={pending}
-      className="wu-shadow-sm h-auto text-left"
+      className="h-auto text-left"
       onClick={onSelect}
-      Icon={<span className={`${promptIcon(prompt)} text-sm`} aria-hidden="true" />}
+      Icon={<span className={`${promptIcon(prompt)} text-[18px]`} aria-hidden="true" />}
     >
       {prompt}
     </WuButton>
@@ -92,42 +87,46 @@ function PromptPill({
 function EmptyState({
   scopeLabel,
   suggestedPrompts,
-  pendingPrompt,
   onPromptSelect,
 }: {
   scopeLabel: string;
   suggestedPrompts: string[];
-  pendingPrompt: string | undefined;
   onPromptSelect: (prompt: string) => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-6 py-10 text-center">
-      {/* Bot avatar */}
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/10">
-        <span className="wm-smart-toy text-3xl text-accent" aria-hidden="true" />
-      </div>
-
-      {/* Heading */}
-      <div className="space-y-1.5">
-        <WuHeading size="md">How can I help you?</WuHeading>
-        <WuSubtext size="sm" className="text-ink-muted">
-          I&apos;m your AI research assistant, here to help you explore {scopeLabel} and uncover valuable insights.
+    <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-8 py-8 text-center">
+      <div className="space-y-2">
+        <WuHeading size="md">
+          <AiLabel>How can I help you?</AiLabel>
+        </WuHeading>
+        <WuSubtext size="sm">
+          I&apos;m your AI research assistant, here to help you explore {scopeLabel} and uncover
+          valuable insights.
         </WuSubtext>
       </div>
 
-      {/* Tips card */}
-      <WuCard rounded className="w-full bg-surface-sunken p-4 text-left wu-shadow-sm">
-        <p className="mb-3 text-xs font-semibold text-ink-muted">
-          How to get the best results
-        </p>
-        <ul className="space-y-2.5">
+      <WuCard rounded className="w-full p-4 text-left">
+        <p className="mb-3 text-sm font-semibold text-ink">How to get the best results</p>
+        <ul className="flex flex-col gap-2">
           {[
-            { icon: 'wm-adjust', label: 'Be Specific', detail: 'Reference sessions, participants, or topics directly.' },
-            { icon: 'wm-forum', label: 'Ask Follow-up Questions', detail: 'Drill into responses to surface richer insights.' },
-            { icon: 'wm-filter-list', label: 'Limit Requests', detail: 'One question at a time gives cleaner, more actionable answers.' },
+            {
+              icon: 'wm-adjust',
+              label: 'Be specific',
+              detail: 'Reference sessions, participants, or topics directly.',
+            },
+            {
+              icon: 'wm-forum',
+              label: 'Ask follow-up questions',
+              detail: 'Drill into responses to surface richer insights.',
+            },
+            {
+              icon: 'wm-filter-list',
+              label: 'Limit requests',
+              detail: 'One question at a time gives cleaner, more actionable answers.',
+            },
           ].map(({ icon, label, detail }) => (
-            <li key={label} className="flex items-start gap-2.5">
-              <span className={`${icon} mt-0.5 shrink-0 text-base text-accent`} aria-hidden="true" />
+            <li key={label} className="flex items-start gap-1">
+              <span className={`${icon} mt-0.5 shrink-0 text-[18px] text-accent`} aria-hidden="true" />
               <span className="text-sm text-ink">
                 <span className="font-medium">{label}</span>
                 {' — '}
@@ -138,21 +137,21 @@ function EmptyState({
         </ul>
       </WuCard>
 
-      {/* Prompt pills */}
       {suggestedPrompts.length > 0 && (
         <div className="flex w-full flex-col gap-2">
           {suggestedPrompts.map((prompt) => (
-            <PromptPill
-              key={prompt}
-              prompt={prompt}
-              pending={pendingPrompt === prompt}
-              onSelect={() => onPromptSelect(prompt)}
-            />
+            <PromptPill key={prompt} prompt={prompt} onSelect={() => onPromptSelect(prompt)} />
           ))}
         </div>
       )}
     </div>
   );
+}
+
+function composerRowCount(value: string): number {
+  if (!value) return 1;
+  const lines = value.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 52)), 0);
+  return Math.min(5, Math.max(1, lines));
 }
 
 export function InsightsChatPane({
@@ -165,7 +164,6 @@ export function InsightsChatPane({
   onContextOverrideChange,
 }: InsightsChatPaneProps) {
   const [inputValue, setInputValue] = useState('');
-  const [pendingPrompt, setPendingPrompt] = useState<string | undefined>(undefined);
   const messages = activeThread?.messages ?? [];
   const latestMessageAnchorRef = useRef<HTMLDivElement>(null);
   const messageCount = messages.length;
@@ -181,35 +179,31 @@ export function InsightsChatPane({
     setInputValue('');
   }
 
-  function handlePromptSelect(prompt: string) {
-    setPendingPrompt(prompt);
-    onSend(prompt);
-  }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 bg-surface-sunken">
-        <WuScrollArea className="h-full px-6 py-4">
+        <WuScrollArea className="h-full p-4">
           {messages.length === 0 ? (
             <EmptyState
               scopeLabel={scopeLabel}
               suggestedPrompts={suggestedPrompts}
-              pendingPrompt={pendingPrompt}
-              onPromptSelect={handlePromptSelect}
+              onPromptSelect={onSend}
             />
           ) : (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               {messages.map((message) =>
                 message.role === 'user' ? (
                   <div key={message.id} className="flex justify-end">
-                    <div className="max-w-xl rounded-xl rounded-tr-sm bg-accent px-4 py-3 text-sm leading-6 text-inverse">
+                    <div className="max-w-xl rounded-lg bg-accent px-4 py-3 text-sm text-inverse">
                       {message.promptLabel}
                     </div>
                   </div>
                 ) : (
                   <div key={message.id} className="flex justify-start">
-                    <WuCard rounded className="max-w-2xl p-4 wu-shadow-sm">
-                      {message.response && <ChatMessageContent response={message.response} scope={scopeRef} />}
+                    <WuCard rounded className="max-w-2xl p-4">
+                      {message.response && (
+                        <ChatMessageContent response={message.response} scope={scopeRef} />
+                      )}
                     </WuCard>
                   </div>
                 )
@@ -220,30 +214,29 @@ export function InsightsChatPane({
         </WuScrollArea>
       </div>
 
-      <div className="shrink-0 border-t border-line bg-surface px-6 py-4">
-        <div className="flex flex-col gap-3">
+      <div className="shrink-0 border-t border-line bg-surface p-4">
+        <div className="flex flex-col gap-2">
           {onContextOverrideChange && (
             <ChatContextPicker override={contextOverride} onChange={onContextOverrideChange} />
           )}
-          <div className="flex items-center gap-3">
+          <div className="flex items-end gap-2">
             <div className="min-w-0 flex-1">
-              <WuInput
+              <WuTextarea
                 variant="outlined"
                 value={inputValue}
+                rows={composerRowCount(inputValue)}
                 onChange={(event) => setInputValue(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') handleSend();
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSend();
+                  }
                 }}
-                placeholder="Ask InsightsHub anything..."
-                className="w-full"
+                placeholder="Ask InsightsHub anything"
+                className="max-h-[7.5rem] w-full overflow-y-auto"
               />
             </div>
-            <WuButton
-              variant="primary"
-              size="sm"
-              onClick={handleSend}
-              disabled={inputValue.trim().length === 0}
-            >
+            <WuButton variant="primary" size="sm" onClick={handleSend} disabled={inputValue.trim().length === 0}>
               Send
             </WuButton>
           </div>

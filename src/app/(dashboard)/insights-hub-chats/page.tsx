@@ -23,10 +23,6 @@ const WuScrollArea = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuScrollArea })),
   { ssr: false }
 );
-const WuCard = dynamic(
-  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuCard })),
-  { ssr: false }
-);
 const WuInput = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuInput })),
   { ssr: false }
@@ -126,7 +122,7 @@ export default function InsightsHubChatsPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-48px)] min-h-0 flex-col overflow-hidden bg-surface-sunken px-6 py-6">
+    <div className="flex h-[calc(100dvh-48px)] min-h-0 flex-col gap-8 overflow-hidden bg-surface px-4 py-8">
       <div className="shrink-0">
         <PageHeader
           title={<AiLabel>InsightsHub chats</AiLabel>}
@@ -134,11 +130,9 @@ export default function InsightsHubChatsPage() {
         />
       </div>
 
-      <div className="grid min-h-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface wu-shadow-md lg:grid-cols-[280px_minmax(0,1fr)]">
-        {/* Left rail */}
-        <aside className="flex min-h-0 flex-col border-b border-line bg-surface lg:border-b-0 lg:border-r">
-          {/* New Chat button */}
-          <div className="shrink-0 px-3 pt-4 pb-2">
+      <div className="grid min-h-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col border-b border-line bg-[var(--qp-gray-20)] lg:border-b-0 lg:border-r">
+          <div className="flex shrink-0 flex-col gap-2 p-4">
             <WuButton
               variant="primary"
               Icon={<span className="wm-add" />}
@@ -151,38 +145,31 @@ export default function InsightsHubChatsPage() {
             >
               New chat
             </WuButton>
-          </div>
-
-          {/* Search input */}
-          <div className="relative shrink-0 px-3 pb-3">
-            <span className="wm-search pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-sm text-ink-muted" aria-hidden="true" />
             <WuInput
               variant="outlined"
-              placeholder="Search chats..."
+              placeholder="Search chats"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-7"
+              className="w-full"
             />
+            {threads.length >= 3 && (
+              <WuSubtext size="sm">
+                {filteredThreads.length === sortedThreads.length
+                  ? `${threads.length} conversations`
+                  : `${filteredThreads.length} of ${threads.length} conversations`}
+              </WuSubtext>
+            )}
           </div>
+          <div className="qp-cut-line shrink-0" />
 
-          {/* Thread count */}
-          <div className="shrink-0 border-b border-line px-4 pb-2">
-            <WuSubtext size="sm">
-              {filteredThreads.length === sortedThreads.length
-                ? `${threads.length} conversation${threads.length === 1 ? '' : 's'}`
-                : `${filteredThreads.length} of ${threads.length} conversations`}
-            </WuSubtext>
-          </div>
-
-          {/* Thread list */}
           <div className="min-h-0 flex-1">
-            <WuScrollArea className="h-full px-2 py-3">
+            <WuScrollArea className="h-full p-4 pt-2">
               {filteredThreads.length === 0 ? (
-                <p className="px-2 py-6 text-center text-sm text-ink-muted">
+                <p className="px-2 py-8 text-center text-sm text-ink-muted">
                   {search.trim() ? 'No chats match your search' : 'No chats yet'}
                 </p>
               ) : (
-                <div className="space-y-1">
+                <div className="flex flex-col">
                   {filteredThreads.map((thread) => {
                     const selected = thread.id === activeThreadId;
                     const isRenaming = renamingId === thread.id;
@@ -198,85 +185,65 @@ export default function InsightsHubChatsPage() {
                             setActiveThreadId(thread.id);
                             setContextOverride(thread.contextOverride);
                           }}
-                          className="block w-full text-left"
+                          className={`w-full rounded p-4 text-left transition-colors hover:bg-[var(--qp-gray-40)] ${
+                            selected
+                              ? 'qp-row-selected shadow-[inset_4px_0_0_var(--qp-p-blue)]'
+                              : ''
+                          }`}
                         >
-                          <WuCard
-                            rounded
-                            className={`p-3 pr-8 transition ${
-                              selected
-                                ? 'border border-accent bg-surface-brand wu-shadow-sm'
-                                : 'border border-transparent bg-surface wu-shadow-sm hover:bg-surface-sunken hover:wu-shadow-md'
-                            }`}
-                          >
-                            <div className="flex items-start gap-2.5">
-                              {/* Bot avatar */}
-                              <div
-                                className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                                  selected ? 'bg-accent' : 'bg-accent/10'
-                                }`}
-                              >
-                                <span
-                                  className={`wm-smart-toy text-base ${selected ? 'text-white' : 'text-accent'}`}
-                                  aria-hidden="true"
-                                />
-                              </div>
-
-                              <div className="min-w-0 flex-1">
-                                {isRenaming ? (
-                                  <div onClick={(e) => e.stopPropagation()}>
-                                    <WuInput
-                                      variant="outlined"
-                                      value={renameValue}
-                                      onChange={(e) => setRenameValue(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') commitRename(thread.id);
-                                        if (e.key === 'Escape') {
-                                          setRenamingId(undefined);
-                                          setRenameValue('');
-                                        }
-                                      }}
-                                      onBlur={() => commitRename(thread.id)}
-                                      autoFocus
-                                      className="w-full text-sm"
-                                    />
-                                  </div>
-                                ) : (
-                                  <WuText size="sm" as="div" className="truncate font-medium text-ink leading-snug">
-                                    {thread.title}
-                                  </WuText>
-                                )}
-
-                                <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-muted">
-                                  <span className="wm-chat text-xs" aria-hidden="true" />
-                                  <span>{turnCount} turn{turnCount === 1 ? '' : 's'}</span>
-                                  <span aria-hidden="true">·</span>
-                                  <span className="truncate">{formatRelativeDate(thread.updatedAt)}</span>
+                          <div className="flex items-start gap-1 pr-6">
+                            <span
+                              className="wm-chat mt-0.5 shrink-0 text-[18px] text-ink-muted"
+                              aria-hidden="true"
+                            />
+                            <div className="min-w-0 flex-1">
+                              {isRenaming ? (
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  <WuInput
+                                    variant="outlined"
+                                    value={renameValue}
+                                    onChange={(e) => setRenameValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') commitRename(thread.id);
+                                      if (e.key === 'Escape') {
+                                        setRenamingId(undefined);
+                                        setRenameValue('');
+                                      }
+                                    }}
+                                    onBlur={() => commitRename(thread.id)}
+                                    autoFocus
+                                    className="w-full text-sm"
+                                  />
                                 </div>
-
-                                {!isRenaming && (
-                                  <WuSubtext size="sm" as="div" className="mt-0.5 truncate">
-                                    {thread.scopeLabel}
-                                  </WuSubtext>
-                                )}
+                              ) : (
+                                <WuText size="sm" as="div" className="truncate font-medium text-ink">
+                                  {thread.title}
+                                </WuText>
+                              )}
+                              <div className="mt-1 flex items-center gap-1 text-sm text-ink-muted">
+                                <span>
+                                  {turnCount} turn{turnCount === 1 ? '' : 's'}
+                                </span>
+                                <span aria-hidden="true">·</span>
+                                <span className="truncate">{formatRelativeDate(thread.updatedAt)}</span>
                               </div>
+                              {!isRenaming && (
+                                <WuSubtext size="sm" as="div" className="mt-1 truncate">
+                                  {thread.scopeLabel}
+                                </WuSubtext>
+                              )}
                             </div>
-                          </WuCard>
+                          </div>
                         </button>
-
-                        {/* ⋮ Context menu — outside the button to avoid event conflicts */}
-                        <div
-                          className="absolute right-1.5 top-1.5"
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <div className="absolute right-2 top-2" onClick={(e) => e.stopPropagation()}>
                           <WuMenu
                             Trigger={
-                              <button
-                                type="button"
+                              <WuButton
+                                variant="iconOnly"
+                                size="sm"
                                 aria-label={`Actions for ${thread.title}`}
-                                className="flex h-6 w-6 items-center justify-center rounded hover:bg-surface-sunken"
-                              >
-                                <span className="wm-more-vert text-sm text-ink-muted" aria-hidden="true" />
-                              </button>
+                                Icon={<span className="wm-more-vert" />}
+                              />
                             }
                             align="end"
                           >
@@ -303,12 +270,11 @@ export default function InsightsHubChatsPage() {
           </div>
         </aside>
 
-        {/* Chat pane */}
         <section className="flex min-h-0 flex-col bg-surface-sunken">
           {activeThread && (
-            <div className="shrink-0 border-b border-line bg-surface px-6 py-4">
+            <div className="shrink-0 border-b border-line bg-surface p-4">
               <p className="text-sm font-semibold text-ink">{activeThread.title}</p>
-              <p className="mt-1 truncate text-xs text-ink-muted">{activeThread.scopeLabel}</p>
+              <p className="mt-1 truncate text-sm text-ink-muted">{activeThread.scopeLabel}</p>
             </div>
           )}
           <InsightsChatPane

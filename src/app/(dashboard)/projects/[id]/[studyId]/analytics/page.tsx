@@ -19,12 +19,14 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { AiLabel } from '@/components/ui/AiLabel';
 import { TreeTestingAnalysis } from '@/components/projects/TreeTestingAnalysis';
+import { CardSortingAnalysis } from '@/components/projects/CardSortingAnalysis';
 import { AnalyticsFilters } from '@/components/projects/AnalyticsFilters';
 import { ThematicAnalysisCard } from '@/components/projects/ThematicAnalysisCard';
 import { WordCloudCard } from '@/components/projects/WordCloudCard';
 import { SentimentTimeline } from '@/components/projects/SentimentTimeline';
 import { StudyAiSummaryCard } from '@/components/projects/StudyAiSummaryCard';
 import { taskTypeIcon, taskTypeLabel } from '@/components/projects/AddTaskPanel';
+import { openStudyPreview } from '@/components/projects/participant/preview-routes';
 import { getFolderById, getStudyById, type StudyQuest } from '@/data/mock-projects';
 import {
   ANALYTICS_PARTICIPANTS,
@@ -125,10 +127,13 @@ function StudyAnalyticsContent() {
     days: '6',
   });
 
-  const visibleQuests =
-    appliedFilters.taskId === 'all'
-      ? study.quests
-      : study.quests.filter((quest) => quest.tasks.some((task) => task.id === appliedFilters.taskId));
+  const visibleQuests = study.quests.filter((quest) => {
+    if (appliedFilters.questIds.length > 0 && !appliedFilters.questIds.includes(quest.id)) return false;
+    if (appliedFilters.taskIds.length > 0 && !quest.tasks.some((task) => appliedFilters.taskIds.includes(task.id))) {
+      return false;
+    }
+    return true;
+  });
 
   function runAiAnalysis() {
     setAiStatus('running');
@@ -155,6 +160,7 @@ function StudyAnalyticsContent() {
         <div className={`qp-reveal ${showFilters ? 'qp-reveal-open' : ''}`}>
           <div>
             <AnalyticsFilters
+              quests={study.quests}
               draft={draftFilters}
               onDraftChange={setDraftFilters}
               onApply={() => {
@@ -204,7 +210,14 @@ function StudyAnalyticsContent() {
         </WuCard>
       )}
 
-      {aiStatus === 'ready' && <SentimentTimeline responses={responses} />}
+      {aiStatus === 'ready' && (
+        <SentimentTimeline
+          responses={responses}
+          quests={study.quests}
+          selectedQuestIds={appliedFilters.questIds}
+          selectedTaskIds={appliedFilters.taskIds}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <WuCard rounded className="qp-card-depth p-4">
@@ -257,7 +270,7 @@ function StudyAnalyticsContent() {
                 Q{index + 1}: {truncate(quest.title, 28)}
               </button>
               {quest.tasks
-                .filter((task) => appliedFilters.taskId === 'all' || task.id === appliedFilters.taskId)
+                .filter((task) => appliedFilters.taskIds.length === 0 || appliedFilters.taskIds.includes(task.id))
                 .map((task) => (
                   <button
                     key={task.id}
@@ -284,7 +297,7 @@ function StudyAnalyticsContent() {
               index={index}
               expanded={expandedQuest === quest.id}
               expandedTask={expandedTask}
-              taskFilter={appliedFilters.taskId}
+              taskFilter={appliedFilters.taskIds}
               onToggle={() => setExpandedQuest((current) => (current === quest.id ? null : quest.id))}
               onToggleTask={(taskId) => setExpandedTask((current) => (current === taskId ? null : taskId))}
               onFilter={() => showToast({ message: 'Filter applied', variant: 'success' })}
@@ -325,7 +338,15 @@ function StudyAnalyticsContent() {
             >
               <AiLabel>AI analysis</AiLabel>
             </WuButton>
-            <WuButton variant="iconOnly" aria-label="Preview" Icon={<span className="wm-visibility" />} onClick={() => showToast({ message: 'Preview opened', variant: 'success' })} />
+            <WuButton
+              variant="iconOnly"
+              aria-label="Preview"
+              Icon={<span className="wm-visibility" />}
+              onClick={() => {
+                openStudyPreview(folderId, studyId);
+                showToast({ message: 'Preview opened', variant: 'success' });
+              }}
+            />
             <WuMenu
               Trigger={
                 <WuButton>
@@ -372,12 +393,12 @@ function QuestAnalysisCard({
   index: number;
   expanded: boolean;
   expandedTask: string | null;
-  taskFilter: string;
+  taskFilter: string[];
   onToggle: () => void;
   onToggleTask: (taskId: string) => void;
   onFilter: () => void;
 }) {
-  const tasks = quest.tasks.filter((task) => taskFilter === 'all' || task.id === taskFilter);
+  const tasks = quest.tasks.filter((task) => taskFilter.length === 0 || taskFilter.includes(task.id));
 
   return (
     <div className="overflow-hidden rounded-lg bg-surface qp-card-depth" id={`quest-${quest.id}`}>
@@ -415,6 +436,8 @@ function QuestAnalysisCard({
                       <div className="qp-enter border-t border-[var(--qp-gray-40)] p-3">
                         {task.type === 'tree-testing' ? (
                           <TreeTestingAnalysis onFilter={onFilter} />
+                        ) : task.type === 'card-sorting' ? (
+                          <CardSortingAnalysis onFilter={onFilter} />
                         ) : (
                           <p className="text-sm text-ink-muted">
                             Task analysis for {taskTypeLabel(task.type).toLowerCase()} is shown here when responses are collected.

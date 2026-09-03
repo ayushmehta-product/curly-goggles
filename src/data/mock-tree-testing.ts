@@ -1,5 +1,4 @@
 import type { TreeNode } from '@/data/tree-utils';
-import { cloneTree } from '@/data/tree-utils';
 
 export interface FindabilityTask {
   id: string;
@@ -32,7 +31,7 @@ export interface TreeFindabilityAnalysis {
   successRate: number;
   directness: number;
   avgTimeSeconds: number;
-  endDestinations: { label: string; count: number }[];
+  endDestinations: { label: string; count: number; correct?: boolean }[];
   commonPaths: { path: string; count: number; correct: boolean }[];
   firstClicks: { label: string; count: number }[];
   participants: TreeParticipantRow[];
@@ -92,11 +91,8 @@ export const MOCK_FINDABILITY_TASKS: FindabilityTask[] = [
 
 export function defaultTreeTestingConfig(): TreeTestingConfig {
   return {
-    tree: cloneTree(MOCK_DUNKIN_TREE),
-    findabilityTasks: MOCK_FINDABILITY_TASKS.map((task) => ({
-      ...task,
-      correctLeafIds: [...task.correctLeafIds],
-    })),
+    tree: [],
+    findabilityTasks: [],
   };
 }
 
@@ -108,8 +104,8 @@ export const MOCK_TREE_TESTING_ANALYSIS: TreeFindabilityAnalysis[] = [
     directness: 75,
     avgTimeSeconds: 18,
     endDestinations: [
-      { label: 'Hours', count: 14 },
-      { label: 'Store locator', count: 2 },
+      { label: 'Hours', count: 14, correct: true },
+      { label: 'Store locator', count: 2, correct: false },
     ],
     commonPaths: [
       { path: 'Home > Locations > Hours', count: 12, correct: true },
@@ -147,10 +143,10 @@ export const MOCK_TREE_TESTING_ANALYSIS: TreeFindabilityAnalysis[] = [
     directness: 44,
     avgTimeSeconds: 34,
     endDestinations: [
-      { label: 'Join DD Perks', count: 10 },
-      { label: 'Coffee', count: 3 },
-      { label: 'Gift cards', count: 2 },
-      { label: 'Order', count: 1 },
+      { label: 'Join DD Perks', count: 10, correct: true },
+      { label: 'Coffee', count: 3, correct: false },
+      { label: 'Gift cards', count: 2, correct: false },
+      { label: 'Order', count: 1, correct: false },
     ],
     commonPaths: [
       { path: 'Home > Rewards > Join DD Perks', count: 7, correct: true },
@@ -190,10 +186,10 @@ export const MOCK_TREE_TESTING_ANALYSIS: TreeFindabilityAnalysis[] = [
     directness: 38,
     avgTimeSeconds: 31,
     endDestinations: [
-      { label: 'Gift cards', count: 7 },
-      { label: 'Delivery', count: 4 },
-      { label: 'Pickup', count: 3 },
-      { label: 'Donuts', count: 2 },
+      { label: 'Gift cards', count: 7, correct: true },
+      { label: 'Delivery', count: 4, correct: true },
+      { label: 'Pickup', count: 3, correct: false },
+      { label: 'Donuts', count: 2, correct: false },
     ],
     commonPaths: [
       { path: 'Home > Rewards > Gift cards', count: 6, correct: true },

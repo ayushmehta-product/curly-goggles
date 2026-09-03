@@ -202,6 +202,15 @@ export function TreeTestingAnalysis({ onFilter }: TreeTestingAnalysisProps) {
         </div>
       </WuCard>
 
+      <WuCard rounded className="qp-card-depth p-4">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-ink">Findability task</h4>
+          <span className="text-xs text-ink-muted">Single choice</span>
+        </div>
+        <p className="mb-4 text-sm text-ink">{analysis.prompt}</p>
+        <FindabilityChoiceList destinations={analysis.endDestinations} />
+      </WuCard>
+
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <ChartCard title="End destinations" data={analysis.endDestinations} />
         <ChartCard title="First click" data={analysis.firstClicks} />
@@ -247,6 +256,41 @@ export function TreeTestingAnalysis({ onFilter }: TreeTestingAnalysisProps) {
           NoDataContent={<p className="py-6 text-center text-sm text-ink-muted">No matching participants.</p>}
         />
       </WuCard>
+    </div>
+  );
+}
+
+function FindabilityChoiceList({
+  destinations,
+}: {
+  destinations: { label: string; count: number; correct?: boolean }[];
+}) {
+  const total = destinations.reduce((sum, row) => sum + row.count, 0) || 1;
+  return (
+    <div className="flex flex-col gap-3">
+      {destinations.map((row) => {
+        const percent = Math.round((row.count / total) * 100);
+        return (
+          <div key={row.label}>
+            <div className="mb-1 flex items-center justify-between gap-2 text-sm">
+              <span className="inline-flex min-w-0 items-center gap-1 text-ink">
+                {row.correct && <span className="wm-check-circle text-base text-accent" aria-hidden />}
+                <span className="truncate">{row.label}</span>
+                {row.correct && <span className="text-xs text-ink-muted">Correct</span>}
+              </span>
+              <span className="shrink-0 text-ink-muted">
+                {percent}% · {row.count}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--qp-gray-20)]">
+              <div
+                className={`h-full rounded-full ${row.correct ? 'bg-accent' : 'bg-[var(--qp-q-blue)]'}`}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

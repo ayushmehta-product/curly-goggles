@@ -17,6 +17,8 @@ export interface SentimentResponse {
   sentiment: Sentiment;
   participantId: string;
   participantName: string;
+  questId: string;
+  questLabel: string;
   taskId: string;
   taskLabel: string;
   source: 'Conversation' | 'Survey';
@@ -52,7 +54,8 @@ export interface CompletionQuest {
 export interface AnalyticsFiltersState {
   dateFrom: string;
   dateTo: string;
-  taskId: string;
+  questIds: string[];
+  taskIds: string[];
   participantId: string;
   responses: string;
   segmentId: string;
@@ -63,20 +66,39 @@ export interface AnalyticsFiltersState {
 export const DEFAULT_ANALYTICS_FILTERS: AnalyticsFiltersState = {
   dateFrom: '2026-08-27',
   dateTo: '2026-09-02',
-  taskId: 'all',
+  questIds: [],
+  taskIds: [],
   participantId: 'all',
   responses: 'all',
   segmentId: 'all',
   choiceId: 'all',
   keywords: false,
 };
+export const ANALYTICS_QUEST_OPTIONS: AnalyticsOption[] = [
+  { value: 'q001', label: 'Stranger things finale (re)closure' },
+  { value: 'q002', label: 'Quest 1' },
+  { value: 'q003', label: 'Upside Down walkthrough' },
+  { value: 'q004', label: 'Vecna theory diary' },
+  { value: 'q005', label: 'Group watch protocol' },
+];
+
 export const ANALYTICS_TASK_OPTIONS: AnalyticsOption[] = [
-  { value: 'all', label: 'All selected' },
   { value: 't001', label: 'Opening sentiment' },
   { value: 't002', label: 'Character fates' },
   { value: 't010', label: 'Survey 01' },
   { value: 't011', label: 'Tree testing 01' },
+  { value: 't020', label: 'Scene recall' },
+  { value: 't030', label: 'Watch log' },
 ];
+
+const TASK_TO_QUEST: Record<string, string> = {
+  t001: 'q001',
+  t002: 'q001',
+  t010: 'q002',
+  t011: 'q002',
+  t020: 'q003',
+  t030: 'q005',
+};
 
 export const ANALYTICS_RESPONSE_OPTIONS: AnalyticsOption[] = [
   { value: 'all', label: 'All responses' },
@@ -124,6 +146,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'positive',
     participantId: 'p01',
     participantName: 'Maya Chen',
+    questId: 'q001',
+    questLabel: 'Stranger things finale (re)closure',
     taskId: 't001',
     taskLabel: 'Opening sentiment',
     source: 'Conversation',
@@ -136,6 +160,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'neutral',
     participantId: 'p02',
     participantName: 'Jordan Hale',
+    questId: 'q001',
+    questLabel: 'Stranger things finale (re)closure',
     taskId: 't001',
     taskLabel: 'Opening sentiment',
     source: 'Survey',
@@ -148,6 +174,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'negative',
     participantId: 'p03',
     participantName: 'Priya Shah',
+    questId: 'q001',
+    questLabel: 'Stranger things finale (re)closure',
     taskId: 't002',
     taskLabel: 'Character fates',
     source: 'Conversation',
@@ -160,6 +188,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'positive',
     participantId: 'p04',
     participantName: 'Luis Ortega',
+    questId: 'q001',
+    questLabel: 'Stranger things finale (re)closure',
     taskId: 't002',
     taskLabel: 'Character fates',
     source: 'Survey',
@@ -172,6 +202,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'neutral',
     participantId: 'p05',
     participantName: 'Hannah Brooks',
+    questId: 'q002',
+    questLabel: 'Quest 1',
     taskId: 't010',
     taskLabel: 'Survey 01',
     source: 'Survey',
@@ -184,6 +216,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'positive',
     participantId: 'p06',
     participantName: 'Kenji Sato',
+    questId: 'q001',
+    questLabel: 'Stranger things finale (re)closure',
     taskId: 't001',
     taskLabel: 'Opening sentiment',
     source: 'Conversation',
@@ -196,6 +230,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'positive',
     participantId: 'p07',
     participantName: 'Amira Hassan',
+    questId: 'q002',
+    questLabel: 'Quest 1',
     taskId: 't010',
     taskLabel: 'Survey 01',
     source: 'Survey',
@@ -208,6 +244,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'negative',
     participantId: 'p08',
     participantName: 'Noah Patel',
+    questId: 'q001',
+    questLabel: 'Stranger things finale (re)closure',
     taskId: 't002',
     taskLabel: 'Character fates',
     source: 'Conversation',
@@ -220,6 +258,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'neutral',
     participantId: 'p01',
     participantName: 'Maya Chen',
+    questId: 'q002',
+    questLabel: 'Quest 1',
     taskId: 't010',
     taskLabel: 'Survey 01',
     source: 'Survey',
@@ -232,6 +272,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'positive',
     participantId: 'p03',
     participantName: 'Priya Shah',
+    questId: 'q001',
+    questLabel: 'Stranger things finale (re)closure',
     taskId: 't001',
     taskLabel: 'Opening sentiment',
     source: 'Conversation',
@@ -244,6 +286,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'positive',
     participantId: 'p02',
     participantName: 'Jordan Hale',
+    questId: 'q001',
+    questLabel: 'Stranger things finale (re)closure',
     taskId: 't002',
     taskLabel: 'Character fates',
     source: 'Conversation',
@@ -256,6 +300,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'negative',
     participantId: 'p05',
     participantName: 'Hannah Brooks',
+    questId: 'q002',
+    questLabel: 'Quest 1',
     taskId: 't011',
     taskLabel: 'Tree testing 01',
     source: 'Survey',
@@ -268,6 +314,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'neutral',
     participantId: 'p04',
     participantName: 'Luis Ortega',
+    questId: 'q002',
+    questLabel: 'Quest 1',
     taskId: 't010',
     taskLabel: 'Survey 01',
     source: 'Survey',
@@ -280,6 +328,8 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'positive',
     participantId: 'p08',
     participantName: 'Noah Patel',
+    questId: 'q001',
+    questLabel: 'Stranger things finale (re)closure',
     taskId: 't001',
     taskLabel: 'Opening sentiment',
     source: 'Conversation',
@@ -292,10 +342,68 @@ export const MOCK_SENTIMENT_RESPONSES: SentimentResponse[] = [
     sentiment: 'positive',
     participantId: 'p07',
     participantName: 'Amira Hassan',
+    questId: 'q001',
+    questLabel: 'Stranger things finale (re)closure',
     taskId: 't002',
     taskLabel: 'Character fates',
     source: 'Conversation',
     text: 'I keep thinking about the bike scene. That is the image that made the finale feel like home.',
+  },
+  {
+    id: 'r16',
+    dateKey: '2026-08-28',
+    dateLabel: 'Aug 28',
+    sentiment: 'positive',
+    participantId: 'p02',
+    participantName: 'Jordan Hale',
+    questId: 'q003',
+    questLabel: 'Upside Down walkthrough',
+    taskId: 't020',
+    taskLabel: 'Scene recall',
+    source: 'Conversation',
+    text: 'The walkthrough made the geography click. I finally understood how the two worlds sit together.',
+  },
+  {
+    id: 'r17',
+    dateKey: '2026-08-30',
+    dateLabel: 'Aug 30',
+    sentiment: 'neutral',
+    participantId: 'p06',
+    participantName: 'Kenji Sato',
+    questId: 'q003',
+    questLabel: 'Upside Down walkthrough',
+    taskId: 't020',
+    taskLabel: 'Scene recall',
+    source: 'Survey',
+    text: 'The recap was useful, though I already knew most of the map from earlier seasons.',
+  },
+  {
+    id: 'r18',
+    dateKey: '2026-09-01',
+    dateLabel: 'Sep 01',
+    sentiment: 'negative',
+    participantId: 'p03',
+    participantName: 'Priya Shah',
+    questId: 'q005',
+    questLabel: 'Group watch protocol',
+    taskId: 't030',
+    taskLabel: 'Watch log',
+    source: 'Conversation',
+    text: 'The group protocol felt rigid. People wanted to pause and talk, and the task kept pushing us forward.',
+  },
+  {
+    id: 'r19',
+    dateKey: '2026-09-02',
+    dateLabel: 'Sep 02',
+    sentiment: 'positive',
+    participantId: 'p01',
+    participantName: 'Maya Chen',
+    questId: 'q005',
+    questLabel: 'Group watch protocol',
+    taskId: 't030',
+    taskLabel: 'Watch log',
+    source: 'Survey',
+    text: 'Watching together with a shared prompt made the ending land. The discussion after was the best part.',
   },
 ];
 
@@ -401,15 +509,30 @@ export function ordinal(place: number): string {
 
 export function matchesFilters(
   filters: AnalyticsFiltersState,
-  meta: { participantId?: string; participantIds?: string[]; taskId?: string; taskIds?: string[]; source?: SentimentResponse['source'] }
+  meta: {
+    participantId?: string;
+    participantIds?: string[];
+    questId?: string;
+    taskId?: string;
+    taskIds?: string[];
+    source?: SentimentResponse['source'];
+  }
 ): boolean {
   if (filters.participantId !== 'all') {
     const ids = meta.participantIds ?? (meta.participantId ? [meta.participantId] : []);
     if (!ids.includes(filters.participantId)) return false;
   }
-  if (filters.taskId !== 'all') {
+  if (filters.questIds.length > 0) {
+    const questId = meta.questId ?? (meta.taskId ? TASK_TO_QUEST[meta.taskId] : undefined);
+    if (questId && !filters.questIds.includes(questId)) return false;
+    if (!questId && meta.taskIds) {
+      const quests = meta.taskIds.map((id) => TASK_TO_QUEST[id]).filter(Boolean);
+      if (quests.length > 0 && !quests.some((id) => filters.questIds.includes(id))) return false;
+    }
+  }
+  if (filters.taskIds.length > 0) {
     const ids = meta.taskIds ?? (meta.taskId ? [meta.taskId] : []);
-    if (!ids.includes(filters.taskId)) return false;
+    if (ids.length > 0 && !ids.some((id) => filters.taskIds.includes(id))) return false;
   }
   if (filters.responses === 'conversation' && meta.source && meta.source !== 'Conversation') return false;
   if (filters.responses === 'survey' && meta.source && meta.source !== 'Survey') return false;
@@ -422,6 +545,7 @@ export function filterResponses(filters: AnalyticsFiltersState): SentimentRespon
     if (row.dateKey < filters.dateFrom || row.dateKey > filters.dateTo) return false;
     return matchesFilters(filters, {
       participantId: row.participantId,
+      questId: row.questId,
       taskId: row.taskId,
       source: row.source,
     });
@@ -436,17 +560,65 @@ export function buildResponseTimeline(responses: SentimentResponse[]) {
   }));
 }
 
-export function buildSentimentTimeline(responses: SentimentResponse[]) {
-  const days = ['Aug 27', 'Aug 28', 'Aug 29', 'Aug 30', 'Aug 31', 'Sep 01', 'Sep 02'];
-  return days.map((date) => {
-    const forDay = responses.filter((row) => row.dateLabel === date);
+export interface SentimentAxisPoint {
+  key: string;
+  label: string;
+  score: number;
+  positive: number;
+  neutral: number;
+  negative: number;
+  total: number;
+}
+
+export interface SentimentTimelineQuest {
+  id: string;
+  title: string;
+  tasks: { id: string; title: string }[];
+}
+
+function sentimentScore(rows: SentimentResponse[]): Omit<SentimentAxisPoint, 'key' | 'label'> {
+  const positive = rows.filter((row) => row.sentiment === 'positive').length;
+  const neutral = rows.filter((row) => row.sentiment === 'neutral').length;
+  const negative = rows.filter((row) => row.sentiment === 'negative').length;
+  const total = rows.length;
+  const score = total === 0 ? 0 : Math.round(((positive - negative) / total) * 100);
+  return { score, positive, neutral, negative, total };
+}
+
+export function buildCollectiveSentimentTimeline(
+  responses: SentimentResponse[],
+  quests: SentimentTimelineQuest[],
+  selectedQuestIds: string[],
+  selectedTaskIds: string[] = []
+): { mode: 'quest' | 'task'; points: SentimentAxisPoint[] } {
+  const scopedQuests =
+    selectedQuestIds.length === 0
+      ? quests.filter((quest) => quest.tasks.length > 0)
+      : quests.filter((quest) => selectedQuestIds.includes(quest.id));
+
+  if (scopedQuests.length <= 1) {
+    const quest = scopedQuests[0];
+    const tasks = (quest?.tasks ?? []).filter(
+      (task) => selectedTaskIds.length === 0 || selectedTaskIds.includes(task.id)
+    );
     return {
-      date,
-      positive: forDay.filter((row) => row.sentiment === 'positive').length,
-      neutral: forDay.filter((row) => row.sentiment === 'neutral').length,
-      negative: forDay.filter((row) => row.sentiment === 'negative').length,
+      mode: 'task',
+      points: tasks.map((task) => ({
+        key: task.id,
+        label: task.title,
+        ...sentimentScore(responses.filter((row) => row.taskId === task.id)),
+      })),
     };
-  });
+  }
+
+  return {
+    mode: 'quest',
+    points: scopedQuests.map((quest) => ({
+      key: quest.id,
+      label: quest.title,
+      ...sentimentScore(responses.filter((row) => row.questId === quest.id)),
+    })),
+  };
 }
 
 export function filterThemes(filters: AnalyticsFiltersState): ThemeRow[] {

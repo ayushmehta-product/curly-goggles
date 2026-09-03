@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { DropPosition, TreeNode } from '@/data/tree-utils';
-import { countNodes } from '@/data/tree-utils';
 
 const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
@@ -16,6 +15,7 @@ interface TreeEditorProps {
   onRemove: (nodeId: string) => void;
   onRename: (nodeId: string, label: string) => void;
   onMove: (draggedId: string, targetId: string, position: DropPosition) => void;
+  onSetDesired: (nodeId: string) => void;
 }
 
 export function TreeEditor({
@@ -24,6 +24,7 @@ export function TreeEditor({
   onRemove,
   onRename,
   onMove,
+  onSetDesired,
 }: TreeEditorProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -31,6 +32,16 @@ export function TreeEditor({
 
   function isExpanded(id: string) {
     return expanded[id] !== false;
+  }
+
+  if (nodes.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-line bg-surface px-4 py-10 text-center">
+        <p className="text-sm text-ink-muted">
+          No pages yet. Add a page or fetch navigation to start the tree.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -44,7 +55,6 @@ export function TreeEditor({
           onToggle={(id) => setExpanded((current) => ({ ...current, [id]: !isExpanded(id) }))}
           draggingId={draggingId}
           dropHint={dropHint}
-          canDelete={countNodes(nodes) > 1}
           onDragStart={setDraggingId}
           onDragEnd={() => {
             setDraggingId(null);
@@ -55,6 +65,7 @@ export function TreeEditor({
           onAddChild={onAddChild}
           onRemove={onRemove}
           onRename={onRename}
+          onSetDesired={onSetDesired}
         />
       ))}
     </div>
@@ -68,7 +79,6 @@ interface TreeRowProps {
   onToggle: (id: string) => void;
   draggingId: string | null;
   dropHint: { id: string; position: DropPosition } | null;
-  canDelete: boolean;
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
   onDropHint: (hint: { id: string; position: DropPosition } | null) => void;
@@ -76,6 +86,7 @@ interface TreeRowProps {
   onAddChild: (parentId: string) => void;
   onRemove: (nodeId: string) => void;
   onRename: (nodeId: string, label: string) => void;
+  onSetDesired: (nodeId: string) => void;
 }
 
 function positionFromEvent(event: React.DragEvent<HTMLDivElement>): DropPosition {
@@ -86,6 +97,12 @@ function positionFromEvent(event: React.DragEvent<HTMLDivElement>): DropPosition
   return 'child';
 }
 
+function nodeKind(node: TreeNode, depth: number): 'root' | 'folder' | 'page' {
+  if (depth === 0) return 'root';
+  if (node.children.length > 0) return 'folder';
+  return 'page';
+}
+
 function TreeRow({
   node,
   depth,
@@ -93,7 +110,6 @@ function TreeRow({
   onToggle,
   draggingId,
   dropHint,
-  canDelete,
   onDragStart,
   onDragEnd,
   onDropHint,
@@ -101,11 +117,16 @@ function TreeRow({
   onAddChild,
   onRemove,
   onRename,
+  onSetDesired,
 }: TreeRowProps) {
   const hasChildren = node.children.length > 0;
   const open = isExpanded(node.id);
   const hintHere = dropHint?.id === node.id ? dropHint.position : null;
   const isDragging = draggingId === node.id;
+  const kind = nodeKind(node, depth);
+  const kindIcon =
+    kind === 'root' ? 'wm-home' : kind === 'folder' ? 'wm-folder' : 'wm-description';
+  const kindLabel = kind === 'root' ? 'Root' : kind === 'folder' ? 'Folder' : 'Page';
 
   return (
     <div>
@@ -134,7 +155,7 @@ function TreeRow({
         }}
         className={`group relative flex items-center gap-1 border-b border-line py-1.5 pr-2 pl-1 transition-colors duration-150 ${
           isDragging ? 'opacity-40' : 'hover:bg-surface-sunken'
-        }`}
+        } ${kind === 'root' ? 'bg-[#F7F9FC]' : kind === 'folder' ? 'bg-surface-sunken/60' : 'bg-surface'}`}
         style={{ paddingLeft: 8 + depth * 20 }}
       >
         {hintHere === 'before' && (
@@ -146,6 +167,12 @@ function TreeRow({
         {hintHere === 'child' && (
           <span className="pointer-events-none absolute inset-0 rounded ring-2 ring-accent ring-inset" />
         )}
+        <span
+          className={`absolute inset-y-1 left-0 w-1 rounded-r ${
+            kind === 'root' ? 'bg-accent' : kind === 'folder' ? 'bg-[var(--qp-q-blue)]' : 'bg-transparent'
+          }`}
+          aria-hidden
+        />
         <span
           className="wm-drag-indicator cursor-grab text-lg text-ink-muted transition-colors duration-150 group-hover:text-ink"
           aria-hidden
@@ -167,10 +194,29 @@ function TreeRow({
         ) : (
           <span className="w-7" />
         )}
+        <span
+          className={`${kindIcon} text-base ${
+            kind === 'root' ? 'text-accent' : kind === 'folder' ? 'text-[var(--qp-q-blue)]' : 'text-ink-muted'
+          }`}
+          title={kindLabel}
+          aria-hidden
+        />
         <input
           value={node.label}
           onChange={(event) => onRename(node.id, event.target.value)}
           className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-1 text-sm text-ink outline-none transition-colors duration-150 group-hover:border-line group-hover:bg-surface focus:border-accent focus:bg-surface"
+        />
+        <span className="hidden text-[11px] text-ink-muted sm:inline">{kindLabel}</span>
+        <WuButton
+          variant="iconOnly"
+          size="sm"
+          aria-label={node.desired ? 'Clear desired end point' : 'Mark as desired end point'}
+          Icon={
+            <span
+              className={`wm-check-circle text-lg ${node.desired ? 'text-accent' : 'text-ink-muted opacity-40 group-hover:opacity-100'}`}
+            />
+          }
+          onClick={() => onSetDesired(node.id)}
         />
         <span className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
           <WuButton
@@ -185,7 +231,6 @@ function TreeRow({
             size="sm"
             color="error"
             aria-label="Remove page"
-            disabled={!canDelete}
             Icon={<span className="wm-remove" />}
             onClick={() => onRemove(node.id)}
           />
@@ -203,7 +248,6 @@ function TreeRow({
                 onToggle={onToggle}
                 draggingId={draggingId}
                 dropHint={dropHint}
-                canDelete
                 onDragStart={onDragStart}
                 onDragEnd={onDragEnd}
                 onDropHint={onDropHint}
@@ -211,64 +255,12 @@ function TreeRow({
                 onAddChild={onAddChild}
                 onRemove={onRemove}
                 onRename={onRename}
+                onSetDesired={onSetDesired}
               />
             ))}
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-interface ParticipantPreviewProps {
-  nodes: TreeNode[];
-}
-
-export function ParticipantTreePreview({ nodes }: ParticipantPreviewProps) {
-  return (
-    <div className="qp-enter rounded-lg border border-line bg-surface p-3">
-      <p className="mb-2 text-xs font-medium text-ink-muted">Participant view</p>
-      <PreviewList nodes={nodes} />
-    </div>
-  );
-}
-
-function PreviewList({ nodes }: { nodes: TreeNode[] }) {
-  return (
-    <ul className="flex flex-col">
-      {nodes.map((node) => (
-        <PreviewItem key={node.id} node={node} />
-      ))}
-    </ul>
-  );
-}
-
-function PreviewItem({ node }: { node: TreeNode }) {
-  const [open, setOpen] = useState(false);
-  const hasChildren = node.children.length > 0;
-  return (
-    <li>
-      <button
-        type="button"
-        className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-ink transition-colors duration-150 hover:bg-surface-sunken"
-        onClick={() => hasChildren && setOpen((current) => !current)}
-      >
-        {node.label}
-        {hasChildren && (
-          <span
-            className={`wm-expand-more text-ink-muted transition-transform duration-200 ${
-              open ? 'rotate-180' : 'rotate-0'
-            }`}
-          />
-        )}
-      </button>
-      {hasChildren && (
-        <div className={`qp-reveal ${open ? 'qp-reveal-open' : ''}`}>
-          <div className="ml-4 border-l border-line pl-2">
-            <PreviewList nodes={node.children} />
-          </div>
-        </div>
-      )}
-    </li>
   );
 }

@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { SideNav } from '@/components/SideNav';
-import { DigsiteRail } from '@/components/projects/DigsiteRail';
 import { StudySecondNav } from '@/components/projects/StudySecondNav';
 import { InsightsChatWidget } from '@/components/insights-chat/InsightsChatWidget';
 import { loadChatThreads, saveChatThreads } from '@/components/insights-chat/chat-storage';
@@ -44,6 +43,8 @@ export default function DashboardLayout({
   const [threads, setThreads] = useState<ChatThread[]>(() => loadChatThreads() ?? MOCK_INSIGHTS_CHAT_THREADS);
   const [activeThreadId, setActiveThreadId] = useState<string | undefined>(undefined);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [productOpen, setProductOpen] = useState(true);
+  const [workspaceOpen, setWorkspaceOpen] = useState(true);
   const [seenPathname, setSeenPathname] = useState(pathname);
   if (pathname !== seenPathname) {
     setSeenPathname(pathname);
@@ -58,27 +59,36 @@ export default function DashboardLayout({
   const inStudies = pathname.startsWith('/projects');
   const study = studyRouteParts(pathname);
 
+  const workarea = study ? (
+    <Suspense fallback={null}>
+      <WuSidebar
+        className="qp-l2-sidebar"
+        Sidebar={<StudySecondNav folderId={study.folderId} studyId={study.studyId} />}
+        open={workspaceOpen}
+        onOpenChange={setWorkspaceOpen}
+      >
+        {children}
+      </WuSidebar>
+    </Suspense>
+  ) : (
+    children
+  );
+
   return (
     <div className="flex min-h-screen flex-col">
       <WuToast />
       <div className="relative z-[300]">
-        <WuAppHeader productName="User_Experience" categories={[]} />
+        <WuAppHeader productName="User Experience" categories={[]} />
       </div>
-      {inStudies ? (
-        <div className="flex min-h-0 flex-1 overflow-visible">
-          <DigsiteRail expandable={!study} />
-          {study && (
-            <Suspense fallback={null}>
-              <StudySecondNav folderId={study.folderId} studyId={study.studyId} />
-            </Suspense>
-          )}
-          <main className="relative z-[1] min-w-0 flex-1 bg-surface">{children}</main>
-        </div>
-      ) : (
-        <WuSidebar Sidebar={<SideNav />}>
-          <main className="flex-1">{children}</main>
+      <div
+        className={study ? 'qp-study-shell min-h-0 flex-1' : 'min-h-0 flex-1'}
+        data-l1={productOpen ? 'expanded' : 'collapsed'}
+        data-l2={workspaceOpen ? 'expanded' : 'collapsed'}
+      >
+        <WuSidebar Sidebar={<SideNav />} open={productOpen} onOpenChange={setProductOpen}>
+          {workarea}
         </WuSidebar>
-      )}
+      </div>
       {inStudies && (
         <div className="relative z-[60]">
           <WuFooter>QuestionPro Research Edition #QuestionPro UX</WuFooter>

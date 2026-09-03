@@ -1,7 +1,6 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { formatRelativeDate } from '@/data/mock-utils';
 import { AiLabel } from '@/components/ui/AiLabel';
 import type { InsightScopeRef } from '@/data/mock-ai-insights';
 import { InsightsChatPane } from './InsightsChatPane';
@@ -62,35 +61,46 @@ export function InsightsChatDrawer({
   );
 
   return (
-    <WuDrawer side="right" open={open} onOpenChange={onOpenChange} className="flex h-full min-h-0 w-full flex-col p-0 sm:max-w-lg wu-shadow-md">
+    <WuDrawer
+      side="right"
+      open={open}
+      onOpenChange={onOpenChange}
+      className="z-[20] flex h-full min-h-0 w-full flex-col p-0 sm:max-w-lg"
+    >
       <div className="flex h-full min-h-0 flex-col bg-surface">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line bg-surface px-6 py-4 pr-12 wu-shadow-sm">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-surface p-4 pr-12">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-ink">
               <AiLabel>InsightsHub chat</AiLabel>
             </p>
-            <p className="mt-1 truncate text-xs text-ink-muted">
+            <p className="mt-1 truncate text-sm text-ink-muted">
               {activeThread ? activeThread.scopeLabel : scopeLabel}
             </p>
           </div>
           <WuMenu
             Trigger={
-              <WuButton size="sm" variant="outline" Icon={<span className="wm-history" />}>
+              <WuButton size="sm" variant="secondary" Icon={<span className="wm-history" />}>
                 History
               </WuButton>
             }
             align="end"
           >
-            <WuMenuItem onSelect={onNewThread}>+ New chat</WuMenuItem>
+            <WuMenuItem onSelect={onNewThread}>
+              <span className="inline-flex items-center gap-1">
+                <span className="wm-add" aria-hidden="true" />
+                New chat
+              </span>
+            </WuMenuItem>
             {sortedThreads.length > 0 && <WuMenuSeparatorItem />}
-            {sortedThreads.map((thread) => (
-              <WuMenuItem key={thread.id} onSelect={() => onSelectThread(thread.id)}>
-                <div className="min-w-0">
-                  <p className="truncate text-sm">{thread.title}</p>
-                  <p className="text-xs text-ink-muted">{formatRelativeDate(thread.updatedAt)}</p>
-                </div>
-              </WuMenuItem>
-            ))}
+            <div className="max-h-[226px] overflow-y-auto">
+              {sortedThreads.map((thread) => (
+                <WuMenuItem key={thread.id} onSelect={() => onSelectThread(thread.id)}>
+                  <span className="flex min-h-8 items-center truncate text-sm text-ink">
+                    {thread.title}
+                  </span>
+                </WuMenuItem>
+              ))}
+            </div>
           </WuMenu>
         </div>
 

@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StudyHero } from '@/components/projects/StudyHero';
 import { StudyQuestCard } from '@/components/projects/StudyQuestCard';
+import { openStudyPreview } from '@/components/projects/participant/preview-routes';
 import { getFolderById, getStudyById, type StudyQuest } from '@/data/mock-projects';
 import { truncate } from '@/data/mock-utils';
 
@@ -238,7 +239,10 @@ function StudyWorkspaceContent() {
             variant="iconOnly"
             aria-label="Preview"
             Icon={<span className="wm-visibility" />}
-            onClick={() => showToast({ message: 'Preview opened', variant: 'success' })}
+            onClick={() => {
+              openStudyPreview(folderId, studyId);
+              showToast({ message: 'Preview opened', variant: 'success' });
+            }}
           />
           <WuMenu
             Trigger={
