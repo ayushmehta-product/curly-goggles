@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { QuestTaskList } from '@/components/projects/QuestTaskList';
 import { AddTaskPanel, taskTypeLabel } from '@/components/projects/AddTaskPanel';
 import { getFolderById, getQuestById, type QuestTask, type QuestTaskType } from '@/data/mock-projects';
-import { defaultTreeTestingConfig } from '@/data/mock-tree-testing';
+import { cloneFindabilityTask, defaultTreeTestingConfig } from '@/data/mock-tree-testing';
 import { cloneCardSortingConfig, defaultCardSortingConfig } from '@/data/mock-card-sorting';
 import { cloneTree } from '@/data/tree-utils';
 
@@ -173,7 +173,7 @@ export default function QuestBuilderPage() {
                   treeTesting: task.treeTesting
                     ? {
                         tree: cloneTree(task.treeTesting.tree),
-                        findabilityTasks: task.treeTesting.findabilityTasks,
+                        findabilityTasks: task.treeTesting.findabilityTasks.map(cloneFindabilityTask),
                       }
                     : undefined,
                   cardSorting: task.cardSorting ? cloneCardSortingConfig(task.cardSorting) : undefined,

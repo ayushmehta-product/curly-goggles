@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "QuestionPro UX click & scroll capture",
+  "version": "0.1.0",
+  "description": "QA click and scroll tracking on sites you own, without waiting for an application PR.",
+  "action": {
+    "default_title": "QuestionPro UX capture",
+    "default_popup": "popup.html"
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://*/*", "https://*/*"]
+}

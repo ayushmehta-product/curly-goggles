@@ -78,7 +78,7 @@ export function BenchmarksTab({ data }: { data: UsabilityAnalytics }) {
           ))}
         </div>
         <p className="mt-4 text-xs text-gray-400">
-          SUS ranges and industry data sourced from the Nielsen Norman Group SUS research database. Benchmark scores represent the 50th percentile for each vertical.
+          Benchmark scores represent the 50th percentile for each vertical.
         </p>
       </SectionShell>
     </div>

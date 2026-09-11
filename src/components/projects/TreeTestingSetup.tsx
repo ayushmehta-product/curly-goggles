@@ -5,8 +5,8 @@ import dynamic from 'next/dynamic';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { TreeEditor } from '@/components/projects/TreeEditor';
-import type { TreeTestingConfig } from '@/data/mock-tree-testing';
-import { MOCK_DUNKIN_TREE } from '@/data/mock-tree-testing';
+import type { FindabilityChoice, FindabilityTask, TreeTestingConfig } from '@/data/mock-tree-testing';
+import { MOCK_DUNKIN_TREE, createFindabilityTask } from '@/data/mock-tree-testing';
 import type { DropPosition, TreeNode } from '@/data/tree-utils';
 import {
   addChildNode,
@@ -17,7 +17,7 @@ import {
   flattenTree,
   insertNode,
   matchTreeNodes,
-  parseNngCsv,
+  parseTreeCsv,
   removeNode,
   setDesiredNode,
   updateNodeLabel,
@@ -41,6 +41,14 @@ const WuCard = dynamic(
 );
 const WuChip = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuChip })),
+  { ssr: false }
+);
+const WuSelect = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSelect })),
+  { ssr: false }
+);
+const WuToggle = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuToggle })),
   { ssr: false }
 );
 
@@ -118,7 +126,7 @@ export function TreeTestingSetup({ config, onChange }: TreeTestingSetupProps) {
     file
       .text()
       .then((text) => {
-        setTree(parseNngCsv(text));
+        setTree(parseTreeCsv(text));
         showToast({ message: 'Spreadsheet imported', variant: 'success' });
       })
       .catch(() => showToast({ message: 'Could not read that file', variant: 'error' }));
@@ -151,14 +159,16 @@ export function TreeTestingSetup({ config, onChange }: TreeTestingSetupProps) {
     }
     onChange({
       ...config,
-      findabilityTasks: [
-        ...config.findabilityTasks,
-        {
-          id: `ft-${Date.now()}`,
-          prompt: '',
-          correctLeafIds: [],
-        },
-      ],
+      findabilityTasks: [...config.findabilityTasks, createFindabilityTask()],
+    });
+  }
+
+  function updateTask(taskId: string, patch: Partial<FindabilityTask>) {
+    onChange({
+      ...config,
+      findabilityTasks: config.findabilityTasks.map((item) =>
+        item.id === taskId ? { ...item, ...patch } : item
+      ),
     });
   }
 
@@ -173,8 +183,8 @@ export function TreeTestingSetup({ config, onChange }: TreeTestingSetupProps) {
         <WuCard rounded className="bg-surface-sunken p-4 wu-shadow-sm">
           <p className="text-sm text-ink-muted">
             Fetch the page&apos;s navigation — header menus, mega-menu labels, or a help-center
-            hierarchy. Not a sitemap of every URL. Or import an NN/g spreadsheet (homepage in column
-            A, one category per row, deeper levels to the right).
+            hierarchy. Not a sitemap of every URL. Or import a spreadsheet (homepage in column A, one
+            category per row, deeper levels to the right).
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="flex-1">
@@ -249,75 +259,33 @@ export function TreeTestingSetup({ config, onChange }: TreeTestingSetupProps) {
       </section>
 
       <section>
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div>
-            <h4 className="text-sm font-semibold text-ink">Findability tasks</h4>
-            <p className="text-sm text-ink-muted">
-              5–8 scenario tasks. Add destinations by typing — they auto-match pages already in the tree.
-            </p>
-          </div>
-          <WuButton
-            variant="secondary"
-            size="sm"
-            Icon={<span className="wm-add" />}
-            onClick={addFindabilityTask}
-          >
-            Add findability task
-          </WuButton>
+        <div className="mb-3">
+          <h4 className="text-sm font-semibold text-ink">Findability tasks</h4>
+          <p className="text-sm text-ink-muted">
+            5–8 scenario questions. Add destinations by typing — they auto-match pages already in the tree.
+          </p>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {config.findabilityTasks.map((task, index) => (
-            <WuCard key={task.id} rounded className="qp-card-hover qp-enter border border-line bg-surface p-4 wu-shadow-sm">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-xs font-medium text-ink-muted">
-                  Task {index + 1}
-                  {task.isWarmup ? ' · Warmup' : ''}
-                </p>
-                <WuButton
-                  variant="link"
-                  size="sm"
-                  color="error"
-                  onClick={() =>
-                    onChange({
-                      ...config,
-                      findabilityTasks: config.findabilityTasks.filter((item) => item.id !== task.id),
-                    })
-                  }
-                >
-                  Remove
-                </WuButton>
-              </div>
-              <WuTextarea
-                Label="Scenario prompt"
-                variant="outlined"
-                placeholder="You are considering opening a lawn-care service. See if there are resources that can help you begin."
-                value={task.prompt}
-                onChange={(e) =>
-                  onChange({
-                    ...config,
-                    findabilityTasks: config.findabilityTasks.map((item) =>
-                      item.id === task.id ? { ...item, prompt: e.target.value } : item
-                    ),
-                  })
-                }
-              />
-              <div className="mt-3">
-                <p className="mb-2 text-xs font-medium text-ink">Correct destinations</p>
-                <FindabilityMatcher
-                  tree={tree}
-                  selectedIds={task.correctLeafIds}
-                  onChange={(next) =>
-                    onChange({
-                      ...config,
-                      findabilityTasks: config.findabilityTasks.map((item) =>
-                        item.id === task.id ? { ...item, correctLeafIds: next } : item
-                      ),
-                    })
-                  }
-                />
-              </div>
-            </WuCard>
+            <FindabilityQuestionCard
+              key={task.id}
+              index={index}
+              task={task}
+              tree={tree}
+              onChange={(patch) => updateTask(task.id, patch)}
+              onRemove={() =>
+                onChange({
+                  ...config,
+                  findabilityTasks: config.findabilityTasks.filter((item) => item.id !== task.id),
+                })
+              }
+            />
           ))}
+        </div>
+        <div className="mt-4 flex justify-center">
+          <WuButton Icon={<span className="wm-add" />} onClick={addFindabilityTask}>
+            Add question
+          </WuButton>
         </div>
       </section>
 
@@ -335,6 +303,189 @@ export function TreeTestingSetup({ config, onChange }: TreeTestingSetupProps) {
         }}
       />
     </div>
+  );
+}
+
+const QUESTION_TYPES = [{ value: 'single-choice', label: 'Single choice' }];
+
+function wrapText(value: string, before: string, after = before): string {
+  return value ? `${before}${value}${after}` : `${before}${after}`;
+}
+
+function FindabilityQuestionCard({
+  index,
+  task,
+  tree,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  task: FindabilityTask;
+  tree: TreeNode[];
+  onChange: (patch: Partial<FindabilityTask>) => void;
+  onRemove: () => void;
+}) {
+  const { showToast } = useWuShowToast();
+  const choices = task.choices ?? [];
+  const required = task.required !== false;
+  const selectedType = QUESTION_TYPES[0];
+
+  function setChoices(next: FindabilityChoice[]) {
+    onChange({ choices: next });
+  }
+
+  function addChoice(kind: FindabilityChoice['kind'] = 'option', label = '') {
+    if (kind === 'other' && choices.some((choice) => choice.kind === 'other')) {
+      showToast({ message: 'Other is already added', variant: 'error' });
+      return;
+    }
+    if (kind === 'na' && choices.some((choice) => choice.kind === 'na')) {
+      showToast({ message: 'N/A is already added', variant: 'error' });
+      return;
+    }
+    const preset = kind === 'other' ? 'Other' : kind === 'na' ? 'N/A' : label;
+    setChoices([...choices, { id: `ch-${Date.now()}`, label: preset, kind }]);
+  }
+
+  return (
+    <WuCard rounded className="border border-line bg-surface p-4 wu-shadow-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-ink-muted">
+          Question {index + 1}
+          {task.isWarmup ? ' · Warmup' : ''}
+        </p>
+        <WuButton variant="link" size="sm" color="error" onClick={onRemove}>
+          Remove
+        </WuButton>
+      </div>
+
+      <WuTextarea
+        variant="outlined"
+        placeholder="Question"
+        value={task.prompt}
+        onChange={(event) => onChange({ prompt: event.target.value })}
+      />
+      <div className="mt-1 flex items-center gap-1">
+        <WuButton
+          variant="iconOnly"
+          aria-label="Bold"
+          Icon={<span className="font-bold">B</span>}
+          onClick={() => onChange({ prompt: wrapText(task.prompt, '**') })}
+        />
+        <WuButton
+          variant="iconOnly"
+          aria-label="Italic"
+          Icon={<span className="italic">I</span>}
+          onClick={() => onChange({ prompt: wrapText(task.prompt, '_') })}
+        />
+        <WuButton
+          variant="iconOnly"
+          aria-label="Underline"
+          Icon={<span className="underline">U</span>}
+          onClick={() => onChange({ prompt: wrapText(task.prompt, '<u>', '</u>') })}
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <div className="min-w-44">
+          <WuSelect
+            data={QUESTION_TYPES}
+            accessorKey={{ value: 'value', label: 'label' }}
+            value={selectedType}
+            variant="outlined"
+            onSelect={() => undefined}
+          />
+        </div>
+        <WuToggle
+          Label="Required"
+          labelPosition="left"
+          checked={required}
+          onChange={(checked) => onChange({ required: checked })}
+        />
+        <WuToggle
+          Label="Randomize"
+          labelPosition="left"
+          checked={Boolean(task.randomize)}
+          onChange={(checked) => onChange({ randomize: checked })}
+        />
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-2 flex justify-end gap-1">
+          <WuButton
+            variant="iconOnly"
+            aria-label="Add image"
+            Icon={<span className="wm-image" />}
+            onClick={() => showToast({ message: 'Image added to question', variant: 'success' })}
+          />
+          <WuButton
+            variant="iconOnly"
+            aria-label="Reorder options"
+            Icon={<span className="wm-drag-indicator" />}
+            onClick={() => showToast({ message: 'Drag the options to reorder them', variant: 'success' })}
+          />
+        </div>
+        <div className="flex flex-col gap-3">
+          {choices.map((choice, choiceIndex) => (
+            <div key={choice.id} className="flex items-center gap-2">
+              <span className="inline-block h-5 w-5 shrink-0 rounded-full border-2 border-ink-muted" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <WuInput
+                  variant="outlined"
+                  placeholder={choiceIndex === 0 ? 'Option' : `Option ${choiceIndex + 1}`}
+                  value={choice.label}
+                  onChange={(event) =>
+                    setChoices(
+                      choices.map((item) =>
+                        item.id === choice.id ? { ...item, label: event.target.value } : item
+                      )
+                    )
+                  }
+                />
+              </div>
+              <WuButton
+                variant="iconOnly"
+                aria-label="Attach file"
+                Icon={<span className="wm-attach-file" />}
+                onClick={() => showToast({ message: 'Attachment added', variant: 'success' })}
+              />
+              <WuButton
+                variant="iconOnly"
+                aria-label="Delete option"
+                Icon={<span className="wm-delete" />}
+                disabled={choices.length <= 1}
+                onClick={() => setChoices(choices.filter((item) => item.id !== choice.id))}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <WuButton variant="secondary" size="sm" onClick={() => addChoice('option')}>
+              + Option
+            </WuButton>
+            <WuButton variant="secondary" size="sm" onClick={() => addChoice('other')}>
+              Other
+            </WuButton>
+            <WuButton variant="secondary" size="sm" onClick={() => addChoice('na')}>
+              N/A
+            </WuButton>
+          </div>
+          <WuButton variant="outline" size="sm" onClick={() => addChoice('option')}>
+            Add a choice
+          </WuButton>
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-line pt-4">
+        <p className="mb-2 text-xs font-medium text-ink">Correct destinations</p>
+        <FindabilityMatcher
+          tree={tree}
+          selectedIds={task.correctLeafIds}
+          onChange={(correctLeafIds) => onChange({ correctLeafIds })}
+        />
+      </div>
+    </WuCard>
   );
 }
 

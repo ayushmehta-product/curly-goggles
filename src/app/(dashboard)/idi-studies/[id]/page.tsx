@@ -20,6 +20,7 @@ import {
   STUDY_STATUS_LABELS,
   type StudyStatus,
 } from '@/data/mock-idi-studies';
+import { routeId } from '@/data/route-id';
 import {
   MOCK_STUDY_OPERATIONAL_OVERVIEWS,
   type StudySession,
@@ -49,7 +50,7 @@ function StudyStatusBadge({ status }: { status: StudyStatus }) {
 }
 
 export default function StudyOverviewPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = routeId(useParams<{ id: string }>().id);
   const router = useRouter();
   const { showToast } = useWuShowToast();
   const study = MOCK_IDI_STUDIES.find((item) => item.id === id);

@@ -69,16 +69,16 @@ export function StudySetupStep({ onCancel, onSaveDraft, onContinue }: StudySetup
         <div className="border-b border-gray-100 px-5 py-3">
           <h2 className="text-base font-semibold text-gray-900">Study Setup</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Define the test name, task context, and participant goal.
+            Name the study and describe the goal people should try to complete.
           </p>
         </div>
 
         <div className="space-y-4 p-5">
           <div>
             <WuInput
-              Label="Test Name"
+              Label="Test name"
               variant="outlined"
-              placeholder="e.g. Checkout Redesign Usability Test"
+              placeholder="e.g. New member onboarding"
               value={studyName}
               invalid={!!nameError}
               onChange={(e) => {
@@ -94,22 +94,22 @@ export function StudySetupStep({ onCancel, onSaveDraft, onContinue }: StudySetup
 
           <div>
             <WuTextarea
-              Label="Task Description"
+              Label="Task description"
               variant="outlined"
-              placeholder="Describe what participants will be asked to do — e.g. 'Find and complete a purchase using the new checkout flow.'"
+              placeholder="Imagine you are a new member. Get set up and take your first action."
               value={context}
               rows={3}
               onChange={(e) => setContext(e.target.value)}
             />
             <p className="mt-1 text-xs text-gray-500">
-              Optional. Shown to participants at the start of their session and used as a benchmark in analytics.
+              Optional. Give a goal and a situation. Do not name buttons or menus — people should find those themselves.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <WuStepper
-                Label="Target Participants"
+                Label="Target participants"
                 min={1}
                 max={200}
                 value={targetParticipants}
@@ -121,7 +121,7 @@ export function StudySetupStep({ onCancel, onSaveDraft, onContinue }: StudySetup
             </div>
             <div>
               <WuSelect
-                Label="Expected Task Duration"
+                Label="Expected session length"
                 data={SESSION_DURATION_OPTIONS}
                 accessorKey={{ value: 'value', label: 'label' }}
                 value={taskDuration}
@@ -135,14 +135,14 @@ export function StudySetupStep({ onCancel, onSaveDraft, onContinue }: StudySetup
           </div>
 
           <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
-            Next step: configure the testing surface (Website, SaaS, or Figma Prototype) and set up tracking in the <strong>Links</strong> step.
+            Next: connect the product on <strong>Links</strong> so we can list pages and you can mark an observable success for each task.
           </div>
         </div>
 
         <div className="sticky bottom-0 z-20 flex items-center justify-between border-t border-gray-100 bg-white px-5 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.06)]">
           <WuButton variant="link" onClick={onCancel}>Cancel</WuButton>
           <div className="flex items-center gap-2">
-            <WuButton variant="secondary" onClick={onSaveDraft}>Save Draft</WuButton>
+            <WuButton variant="secondary" onClick={onSaveDraft}>Save draft</WuButton>
             <WuButton Icon={<span className="wm-arrow-forward" />} iconPosition="right" onClick={handleContinue}>
               Continue
             </WuButton>
@@ -152,7 +152,7 @@ export function StudySetupStep({ onCancel, onSaveDraft, onContinue }: StudySetup
 
       <aside className="space-y-4">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-900">Test Summary</h3>
+          <h3 className="text-sm font-semibold text-gray-900">Test summary</h3>
           <div className="mt-3">
             <SummaryRow label="Target participants" value={String(targetParticipants)} />
             <SummaryRow label="Task duration" value={taskDuration?.label ?? 'Not set'} />
@@ -161,9 +161,9 @@ export function StudySetupStep({ onCancel, onSaveDraft, onContinue }: StudySetup
           </div>
         </div>
         <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-          <p className="text-sm font-semibold text-blue-900">Why usability tests?</p>
+          <p className="text-sm font-semibold text-blue-900">What this test measures</p>
           <p className="mt-2 text-xs leading-5 text-blue-800">
-            Usability tests reveal exactly where users struggle, click aimlessly, or abandon tasks — before you ship. Pair heatmaps and scroll depth with moderated insights for the richest picture.
+            A usability test asks whether people can reach an intended outcome, how long it takes, and how it felt. You will define that outcome as a page, a section, or a control — not as a hint in the instructions.
           </p>
         </div>
       </aside>

@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import type { IWuTabItem } from '@npm-questionpro/wick-ui-lib';
+import { WuTabPlaceholder } from '@/components/ui/WuTabPlaceholder';
 
 const WuTab = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTab })),
@@ -32,7 +33,7 @@ export function FocusGroupWorkspaceTabs({ focusGroupId, activeTab }: FocusGroupW
   const items: IWuTabItem[] = FOCUS_GROUP_WORKSPACE_TABS.map((tab) => ({
     value: tab.value,
     Trigger: tab.label,
-    Content: <span className="sr-only">{tab.label} selected</span>,
+    Content: <WuTabPlaceholder label={tab.label} />,
   }));
 
   return (

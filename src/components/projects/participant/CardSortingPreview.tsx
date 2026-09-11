@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
@@ -20,6 +20,24 @@ interface CardSortingPreviewProps {
   title: string;
   config: CardSortingConfig;
   backHref: string;
+}
+
+type DropZone = 'unsorted' | string;
+
+interface DragState {
+  cardId: string;
+  label: string;
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  x: number;
+  y: number;
+}
+
+interface InsertTarget {
+  zone: DropZone;
+  index: number;
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -45,6 +63,16 @@ function initialBoard(config: CardSortingConfig) {
   return { categories, unsorted, groups: emptyGroups(categories) };
 }
 
+function cardsInZone(
+  zone: DropZone,
+  unsorted: CardSortItem[],
+  groups: Record<string, string[]>,
+  cardById: Map<string, CardSortItem>
+): CardSortItem[] {
+  if (zone === 'unsorted') return unsorted;
+  return (groups[zone] ?? []).map((id) => cardById.get(id)).filter((card): card is CardSortItem => Boolean(card));
+}
+
 export function CardSortingPreview({ title, config, backHref }: CardSortingPreviewProps) {
   const router = useRouter();
   const { showToast } = useWuShowToast();
@@ -52,11 +80,19 @@ export function CardSortingPreview({ title, config, backHref }: CardSortingPrevi
   const [categories, setCategories] = useState<CardSortItem[]>(seed.categories);
   const [unsorted, setUnsorted] = useState<CardSortItem[]>(seed.unsorted);
   const [groups, setGroups] = useState<Record<string, string[]>>(seed.groups);
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [insert, setInsert] = useState<InsertTarget | null>(null);
   const [newCategory, setNewCategory] = useState('');
   const [done, setDone] = useState(false);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const insertRef = useRef<InsertTarget | null>(null);
+  const unsortedRef = useRef(unsorted);
+  const groupsRef = useRef(groups);
+  dragRef.current = drag;
+  insertRef.current = insert;
+  unsortedRef.current = unsorted;
+  groupsRef.current = groups;
 
   const cardById = useMemo(() => {
     const map = new Map<string, CardSortItem>();
@@ -68,82 +104,137 @@ export function CardSortingPreview({ title, config, backHref }: CardSortingPrevi
   const remaining = unsorted.length;
   const canSubmit = config.allowIncomplete || remaining === 0;
 
-  function removeFromAll(cardId: string): { nextUnsorted: CardSortItem[]; nextGroups: Record<string, string[]> } {
-    const nextUnsorted = unsorted.filter((card) => card.id !== cardId);
+  function removeFromAll(
+    cardId: string,
+    fromUnsorted = unsorted,
+    fromGroups = groups
+  ): { nextUnsorted: CardSortItem[]; nextGroups: Record<string, string[]> } {
+    const nextUnsorted = fromUnsorted.filter((card) => card.id !== cardId);
     const nextGroups: Record<string, string[]> = {};
-    for (const [categoryId, cardIds] of Object.entries(groups)) {
+    for (const [categoryId, cardIds] of Object.entries(fromGroups)) {
       nextGroups[categoryId] = cardIds.filter((id) => id !== cardId);
     }
     return { nextUnsorted, nextGroups };
   }
 
-  function placeCard(cardId: string, categoryId: string | null) {
-    const card = cardById.get(cardId) ?? unsorted.find((item) => item.id === cardId);
+  function placeAt(cardId: string, zone: DropZone, index: number) {
+    const card = cardById.get(cardId);
     if (!card) return;
-    if (categoryId && config.maxCardsPerCategory != null) {
-      const count = groups[categoryId]?.length ?? 0;
-      if (count >= config.maxCardsPerCategory && !groups[categoryId]?.includes(cardId)) {
+    const fromUnsorted = unsortedRef.current;
+    const fromGroups = groupsRef.current;
+    if (zone !== 'unsorted' && config.maxCardsPerCategory != null) {
+      const alreadyHere = fromGroups[zone]?.includes(cardId);
+      const count = fromGroups[zone]?.length ?? 0;
+      if (!alreadyHere && count >= config.maxCardsPerCategory) {
         showToast({ message: `This category already has ${config.maxCardsPerCategory} cards`, variant: 'error' });
         return;
       }
     }
-    const { nextUnsorted, nextGroups } = removeFromAll(cardId);
-    if (categoryId) {
-      nextGroups[categoryId] = [...(nextGroups[categoryId] ?? []), cardId];
-      setUnsorted(nextUnsorted);
-      setGroups(nextGroups);
+    const { nextUnsorted, nextGroups } = removeFromAll(cardId, fromUnsorted, fromGroups);
+    if (zone === 'unsorted') {
+      const at = Math.max(0, Math.min(index, nextUnsorted.length));
+      nextUnsorted.splice(at, 0, card);
     } else {
-      if (!nextUnsorted.some((item) => item.id === cardId)) nextUnsorted.push(card);
-      setUnsorted(nextUnsorted);
-      setGroups(nextGroups);
+      const list = nextGroups[zone] ?? [];
+      const at = Math.max(0, Math.min(index, list.length));
+      list.splice(at, 0, cardId);
+      nextGroups[zone] = list;
     }
-    setSelectedCardId(null);
-    setDropTarget(null);
-    setDraggingId(null);
-  }
-
-  function moveInCategory(categoryId: string, cardId: string, direction: -1 | 1) {
-    setGroups((current) => {
-      const list = [...(current[categoryId] ?? [])];
-      const index = list.indexOf(cardId);
-      const nextIndex = index + direction;
-      if (index < 0 || nextIndex < 0 || nextIndex >= list.length) return current;
-      const swap = list[nextIndex];
-      list[nextIndex] = list[index];
-      list[index] = swap;
-      return { ...current, [categoryId]: list };
-    });
+    setUnsorted(nextUnsorted);
+    setGroups(nextGroups);
   }
 
   function addCategory() {
     const label = newCategory.trim();
     if (!label) return;
     const id = `cat-custom-${Date.now()}`;
-    const category = { id, label };
-    setCategories((current) => [...current, category]);
+    setCategories((current) => [...current, { id, label }]);
     setGroups((current) => ({ ...current, [id]: [] }));
     setNewCategory('');
     showToast({ message: 'Category added', variant: 'success' });
   }
 
-  function onDragStart(event: React.DragEvent, cardId: string) {
-    event.dataTransfer.setData('text/plain', cardId);
-    event.dataTransfer.effectAllowed = 'move';
-    setDraggingId(cardId);
-    setSelectedCardId(cardId);
+  function insertFromPoint(clientX: number, clientY: number, cardId: string): InsertTarget | null {
+    const root = boardRef.current;
+    if (!root) return null;
+    const zones = root.querySelectorAll<HTMLElement>('[data-drop-zone]');
+    let hit: HTMLElement | null = null;
+    for (const zone of zones) {
+      const rect = zone.getBoundingClientRect();
+      if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+        hit = zone;
+        break;
+      }
+    }
+    if (!hit) return null;
+    const zone = hit.dataset.dropZone as DropZone;
+    const items = [...hit.querySelectorAll<HTMLElement>('[data-card-id]')].filter(
+      (el) => el.dataset.cardId !== cardId
+    );
+    let index = items.length;
+    for (let i = 0; i < items.length; i += 1) {
+      const rect = items[i].getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) {
+        index = i;
+        break;
+      }
+    }
+    return { zone, index };
   }
 
-  function onDragOverZone(event: React.DragEvent, zoneId: string) {
+  function startDrag(event: React.PointerEvent<HTMLElement>, card: CardSortItem) {
+    if (event.button !== 0) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-    if (dropTarget !== zoneId) setDropTarget(zoneId);
+    const rect = event.currentTarget.getBoundingClientRect();
+    const next: DragState = {
+      cardId: card.id,
+      label: card.label,
+      width: rect.width,
+      height: rect.height,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      x: event.clientX,
+      y: event.clientY,
+    };
+    setDrag(next);
+    setInsert(insertFromPoint(event.clientX, event.clientY, card.id));
   }
 
-  function onDropZone(event: React.DragEvent, categoryId: string | null) {
-    event.preventDefault();
-    const cardId = event.dataTransfer.getData('text/plain') || draggingId;
-    if (cardId) placeCard(cardId, categoryId);
-  }
+  useEffect(() => {
+    if (!drag) return;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = 'move';
+    document.body.style.userSelect = 'none';
+
+    function onMove(event: PointerEvent) {
+      const current = dragRef.current;
+      if (!current) return;
+      setDrag({ ...current, x: event.clientX, y: event.clientY });
+      setInsert(insertFromPoint(event.clientX, event.clientY, current.cardId));
+    }
+
+    function onUp() {
+      const current = dragRef.current;
+      const target = insertRef.current;
+      if (current && target) {
+        placeAt(current.cardId, target.zone, target.index);
+      }
+      setDrag(null);
+      setInsert(null);
+    }
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [drag?.cardId]);
 
   if (config.cards.length === 0) {
     return (
@@ -171,150 +262,83 @@ export function CardSortingPreview({ title, config, backHref }: CardSortingPrevi
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div ref={boardRef} className="flex flex-col gap-6">
       <div>
         <h2 className="text-2xl font-semibold text-[var(--qp-q-blue)]">{title}</h2>
         <p className="mt-2 text-ink">{config.instructions}</p>
-        <p className="mt-1 text-sm text-ink-muted">
-          Drag a card into a category, or click a card and then click a category. You can move cards between categories.
-        </p>
       </div>
 
-      <section>
-        <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold text-ink">Unsorted cards</h3>
-          <p className="text-xs text-ink-muted">{remaining} left</p>
-        </div>
-        <div
-          className={`flex min-h-32 flex-wrap gap-3 rounded-lg border-2 border-dashed p-4 ${
-            dropTarget === 'unsorted' ? 'border-accent bg-[var(--qp-title-line)]' : 'border-line bg-[var(--qp-gray-20)]'
-          }`}
-          onDragOver={(event) => onDragOverZone(event, 'unsorted')}
-          onDragLeave={() => setDropTarget((current) => (current === 'unsorted' ? null : current))}
-          onDrop={(event) => onDropZone(event, null)}
-        >
-          {unsorted.length === 0 ? (
-            <p className="self-center text-sm text-ink-muted">All cards are sorted. Drop a card here to unsort it.</p>
-          ) : (
-            unsorted.map((card) => (
-              <SortCard
-                key={card.id}
-                label={card.label}
-                selected={selectedCardId === card.id}
-                dragging={draggingId === card.id}
-                compact
-                onSelect={() => setSelectedCardId(card.id)}
-                onDragStart={(event) => onDragStart(event, card.id)}
-                onDragEnd={() => {
-                  setDraggingId(null);
-                  setDropTarget(null);
-                }}
-              />
-            ))
-          )}
-        </div>
-      </section>
+      <div className="grid items-start gap-8 lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <section>
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <h3 className="text-sm font-semibold text-ink">Cards</h3>
+            <p className="text-xs text-ink-muted">{remaining} left</p>
+          </div>
+          <CardList
+            zone="unsorted"
+            cards={unsorted}
+            draggingId={drag?.cardId ?? null}
+            insert={insert}
+            showRank={false}
+            emptyLabel="All cards are sorted"
+            onPointerDown={startDrag}
+          />
+        </section>
 
-      <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-ink">Categories</h3>
-        {categories.length === 0 ? (
-          <p className="text-sm text-ink-muted">Add a category to start grouping cards.</p>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {categories.map((category) => {
-              const cardIds = groups[category.id] ?? [];
-              const active = dropTarget === category.id;
-              return (
-                <div
-                  key={category.id}
-                  className={`flex min-h-56 flex-col rounded-lg p-4 qp-card-depth ${
-                    active ? 'ring-2 ring-accent' : ''
-                  }`}
-                  onClick={() => {
-                    if (selectedCardId) placeCard(selectedCardId, category.id);
-                  }}
-                  onDragOver={(event) => onDragOverZone(event, category.id)}
-                  onDragLeave={() => setDropTarget((current) => (current === category.id ? null : current))}
-                  onDrop={(event) => onDropZone(event, category.id)}
-                >
-                  <p className="mb-3 font-semibold text-ink">{category.label}</p>
-                  <div className="flex flex-1 flex-col gap-3">
-                    {cardIds.length === 0 ? (
-                      <p className="rounded-lg border border-dashed border-line px-3 py-8 text-center text-sm text-ink-muted">
-                        Drop cards here
-                      </p>
-                    ) : (
-                      cardIds.map((cardId, index) => {
-                        const card = cardById.get(cardId);
-                        if (!card) return null;
-                        return (
-                          <div key={cardId} className="flex items-stretch gap-1">
-                            {config.requireRanking ? (
-                              <span className="flex w-5 items-center text-sm font-medium text-ink-muted">{index + 1}</span>
-                            ) : null}
-                            <div className="min-w-0 flex-1">
-                              <SortCard
-                                label={card.label}
-                                selected={selectedCardId === cardId}
-                                dragging={draggingId === cardId}
-                                onSelect={() => setSelectedCardId(cardId)}
-                                onDragStart={(event) => onDragStart(event, cardId)}
-                                onDragEnd={() => {
-                                  setDraggingId(null);
-                                  setDropTarget(null);
-                                }}
-                              />
-                            </div>
-                            {config.requireRanking ? (
-                              <span
-                                className="flex flex-col justify-center"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                <button
-                                  type="button"
-                                  aria-label="Move up"
-                                  className="rounded p-1 text-ink-muted hover:bg-[var(--qp-gray-20)]"
-                                  onClick={() => moveInCategory(category.id, cardId, -1)}
-                                >
-                                  <span className="wm-expand-less" />
-                                </button>
-                                <button
-                                  type="button"
-                                  aria-label="Move down"
-                                  className="rounded p-1 text-ink-muted hover:bg-[var(--qp-gray-20)]"
-                                  onClick={() => moveInCategory(category.id, cardId, 1)}
-                                >
-                                  <span className="wm-expand-more" />
-                                </button>
-                              </span>
-                            ) : null}
-                          </div>
-                        );
-                      })
-                    )}
+        <section>
+          <p className="mb-3 text-sm text-ink-muted">Drag your cards here to categorize them.</p>
+          {categories.length === 0 ? (
+            <p className="text-sm text-ink-muted">Add a category to start grouping cards.</p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {categories.map((category) => {
+                const cards = cardsInZone(category.id, unsorted, groups, cardById);
+                const over = insert?.zone === category.id;
+                return (
+                  <div
+                    key={category.id}
+                    data-drop-zone={category.id}
+                    className={`flex min-h-40 flex-col rounded-lg p-3 qp-card-depth ${
+                      over ? 'ring-2 ring-accent' : ''
+                    }`}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="font-semibold text-ink">{category.label}</p>
+                      <span className="text-sm text-ink-muted">{cards.filter((card) => card.id !== drag?.cardId).length}</span>
+                    </div>
+                    <CardList
+                      zone={category.id}
+                      bindZone={false}
+                      cards={cards}
+                      draggingId={drag?.cardId ?? null}
+                      insert={insert}
+                      showRank={config.requireRanking}
+                      emptyLabel="Drop cards here"
+                      onPointerDown={startDrag}
+                    />
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {canAddCategory ? (
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-48 flex-1">
-              <p className="mb-1 text-sm text-ink">New category</p>
-              <WuInput
-                variant="outlined"
-                placeholder="Category name"
-                value={newCategory}
-                onChange={(event) => setNewCategory(event.target.value)}
-              />
+                );
+              })}
             </div>
-            <WuButton variant="secondary" disabled={!newCategory.trim()} onClick={addCategory}>
-              New category
-            </WuButton>
-          </div>
-        ) : null}
-      </section>
+          )}
+          {canAddCategory ? (
+            <div className="mt-4 flex flex-wrap items-end gap-2">
+              <div className="min-w-48 flex-1">
+                <p className="mb-1 text-sm text-ink">New category</p>
+                <WuInput
+                  variant="outlined"
+                  placeholder="Category name"
+                  value={newCategory}
+                  onChange={(event) => setNewCategory(event.target.value)}
+                />
+              </div>
+              <WuButton variant="secondary" disabled={!newCategory.trim()} onClick={addCategory}>
+                New category
+              </WuButton>
+            </div>
+          ) : null}
+        </section>
+      </div>
 
       <div className="flex justify-end">
         <WuButton
@@ -327,43 +351,114 @@ export function CardSortingPreview({ title, config, backHref }: CardSortingPrevi
           Submit
         </WuButton>
       </div>
+
+      {drag ? (
+        <div
+          className="pointer-events-none fixed z-[1100] opacity-80"
+          style={{
+            left: drag.x - drag.offsetX,
+            top: drag.y - drag.offsetY,
+            width: drag.width,
+            height: drag.height,
+          }}
+        >
+          <SortCard label={drag.label} showRank={false} rank={null} ghost />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CardList({
+  zone,
+  bindZone = true,
+  cards,
+  draggingId,
+  insert,
+  showRank,
+  emptyLabel,
+  onPointerDown,
+}: {
+  zone: DropZone;
+  bindZone?: boolean;
+  cards: CardSortItem[];
+  draggingId: string | null;
+  insert: InsertTarget | null;
+  showRank: boolean;
+  emptyLabel: string;
+  onPointerDown: (event: React.PointerEvent<HTMLElement>, card: CardSortItem) => void;
+}) {
+  const visible = cards.filter((card) => card.id !== draggingId);
+  const showPlaceholder = insert?.zone === zone;
+  const placeholderIndex = showPlaceholder ? insert.index : -1;
+  const rows: Array<{ type: 'card'; card: CardSortItem; rank: number } | { type: 'placeholder' }> = [];
+  visible.forEach((card, index) => {
+    if (placeholderIndex === index) rows.push({ type: 'placeholder' });
+    rows.push({ type: 'card', card, rank: index + 1 + (placeholderIndex !== -1 && index >= placeholderIndex ? 1 : 0) });
+  });
+  if (placeholderIndex === visible.length) rows.push({ type: 'placeholder' });
+
+  return (
+    <div
+      data-drop-zone={bindZone ? zone : undefined}
+      className={`flex min-h-24 flex-col gap-2 rounded-lg border border-line p-2 ${
+        showPlaceholder ? 'bg-[var(--qp-title-line)]' : 'bg-[var(--qp-gray-20)]'
+      }`}
+    >
+      {rows.length === 0 ? (
+        <p className="px-2 py-6 text-center text-sm text-ink-muted">{emptyLabel}</p>
+      ) : (
+        rows.map((row) =>
+          row.type === 'placeholder' ? (
+            <div
+              key={`placeholder-${zone}`}
+              className="min-h-[3.25rem] rounded-lg border-2 border-dashed border-accent bg-surface/70"
+            />
+          ) : (
+            <div key={row.card.id} data-card-id={row.card.id}>
+              <SortCard
+                label={row.card.label}
+                showRank={showRank}
+                rank={showRank ? row.rank : null}
+                onPointerDown={(event) => onPointerDown(event, row.card)}
+              />
+            </div>
+          )
+        )
+      )}
     </div>
   );
 }
 
 function SortCard({
   label,
-  selected,
-  dragging,
-  compact,
-  onSelect,
-  onDragStart,
-  onDragEnd,
+  showRank,
+  rank,
+  ghost,
+  onPointerDown,
 }: {
   label: string;
-  selected: boolean;
-  dragging: boolean;
-  compact?: boolean;
-  onSelect: () => void;
-  onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void;
-  onDragEnd: () => void;
+  showRank: boolean;
+  rank: number | null;
+  ghost?: boolean;
+  onPointerDown?: (event: React.PointerEvent<HTMLElement>) => void;
 }) {
   return (
-    <button
-      type="button"
-      draggable
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelect();
-      }}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      className={`flex min-h-[4.5rem] cursor-grab items-center gap-3 rounded-lg px-4 py-3 text-left active:cursor-grabbing ${
-        compact ? 'w-[13rem]' : 'w-full'
-      } ${selected ? 'ring-2 ring-accent' : ''} ${dragging ? 'opacity-50' : ''} qp-card-depth hover:bg-[var(--qp-gray-20)]`}
+    <div
+      role="listitem"
+      onPointerDown={onPointerDown}
+      onDragStart={(event) => event.preventDefault()}
+      className={`flex min-h-[3.25rem] w-full cursor-move touch-none items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 text-left ${
+        ghost ? 'qp-card-depth' : 'hover:bg-[var(--qp-gray-20)]'
+      }`}
     >
-      <span className="wm-drag-indicator text-lg text-ink-muted" aria-hidden />
-      <span className="text-base font-medium text-ink">{label}</span>
-    </button>
+      <span className="wm-drag-indicator shrink-0 text-lg text-ink-muted" aria-hidden />
+      <span className="min-w-0 flex-1 text-sm font-medium text-ink">{label}</span>
+      {showRank && rank != null ? (
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-accent text-xs font-medium text-white">
+          {rank}
+        </span>
+      ) : null}
+    </div>
   );
 }

@@ -1,233 +1,414 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import type { IWuTabItem } from '@npm-questionpro/wick-ui-lib';
-import { StatCard, HeatmapMock, SankeyDiagram, SectionShell } from './charts';
-import type { UsabilityAnalytics } from '@/data/mock-usability-analytics';
+import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
+import type { IWuTabItem, IWuTableColumnDef } from '@npm-questionpro/wick-ui-lib';
+import { HeatmapMock } from './charts';
+import { ClickPathsView } from './ClickPathsView';
+import { WuTabPlaceholder } from '@/components/ui/WuTabPlaceholder';
+import { EmptyState } from '@/components/ui/EmptyState';
+import type {
+  AnalyticsTaskView,
+  RageMisclickRow,
+  TaskSuccessDefinition,
+  UsabilityAnalytics,
+} from '@/data/mock-usability-analytics';
 
-const SessionActivityChart = dynamic(
-  () => import('./SessionActivityChart').then((m) => ({ default: m.SessionActivityChart })),
-  { ssr: false }
-);
 const ScrollDepthView = dynamic(
   () => import('./ScrollDepthView').then((m) => ({ default: m.ScrollDepthView })),
   { ssr: false }
 );
 
+const WuButton = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
+  { ssr: false }
+);
+const WuCard = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuCard })),
+  { ssr: false }
+);
 const WuChip = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuChip })),
+  { ssr: false }
+);
+const WuSelect = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSelect })),
   { ssr: false }
 );
 const WuTab = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTab })),
   { ssr: false }
 );
+const WuTable = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTable })),
+  { ssr: false }
+);
 
 type SubTab = 'overview' | 'heatmaps' | 'scroll-depth' | 'session-replays' | 'click-paths' | 'rage-misclicks';
+type PageOption = { value: string; label: string };
+type ScopeOption = { value: string; label: string };
+
+const WHOLE_TEST = 'all';
 
 const SUB_TABS: { value: SubTab; label: string }[] = [
   { value: 'overview', label: 'Overview' },
   { value: 'heatmaps', label: 'Heatmaps' },
-  { value: 'scroll-depth', label: 'Scroll Depth' },
-  { value: 'session-replays', label: 'Session Replays' },
-  { value: 'click-paths', label: 'Click Paths' },
-  { value: 'rage-misclicks', label: 'Rage & Misclicks' },
+  { value: 'scroll-depth', label: 'Scroll depth' },
+  { value: 'session-replays', label: 'Session replays' },
+  { value: 'click-paths', label: 'Click paths' },
+  { value: 'rage-misclicks', label: 'Repeated clicks' },
 ];
 
-const PAGE_OPTIONS = [
-  { value: '/', label: '/ (Home)' },
-  { value: '/checkout', label: '/checkout' },
-  { value: '/product', label: '/product' },
-];
+function successCopy(def: TaskSuccessDefinition): string {
+  if (def.mode === 'reach-section' && def.sectionLabel) {
+    return `They reach “${def.sectionLabel}” on ${def.successLabel}`;
+  }
+  if (def.mode === 'click-control' && def.sectionLabel) {
+    return `They click “${def.sectionLabel}” on ${def.successLabel}`;
+  }
+  if (def.mode === 'participant-done') return 'Participant marks done';
+  return `They reach ${def.successLabel}`;
+}
 
-function OverviewSub({ data }: { data: UsabilityAnalytics }) {
-  const b = data.behavior;
+function pageOptionsFrom(task: AnalyticsTaskView): PageOption[] {
+  return task.pageScrollDepth.map((page) => ({
+    value: page.path,
+    label: page.isStart
+      ? `${page.label} (start)`
+      : page.isSuccess
+        ? `${page.label} (success)`
+        : page.label,
+  }));
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="space-y-5">
-      <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-        <strong>Behaviour tracking is active.</strong> Data below is aggregated from {b.participantsTracked} participants across all sessions.
-      </div>
+    <WuCard rounded className="p-4 wu-shadow-sm">
+      <p className="text-xs font-medium text-ink-muted">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-ink">{value}</p>
+    </WuCard>
+  );
+}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Participants tracked" value={b.participantsTracked} icon="wm-people" accent="blue" />
-        <StatCard label="Avg time on task" value={b.avgTimeOnTask} icon="wm-timer" accent="blue" />
-        <StatCard label="Task success rate" value={b.taskSuccessRate} icon="wm-check-circle" accent="green" />
-        <StatCard label="Avg scroll depth" value={b.avgScrollDepth} icon="wm-swap-vert" accent="blue" />
-        <StatCard label="Rage click events" value={b.rageClickEvents} icon="wm-touch-app" accent={b.rageClickEvents > 5 ? 'red' : 'amber'} />
-        <StatCard label="Misclick rate" value={b.misclickRate} icon="wm-warning" accent="amber" />
-      </div>
+interface TaskRow {
+  id: string;
+  task: string;
+  success: string;
+  reached: string;
+  left: number;
+  time: string;
+}
 
-      <SectionShell title="Session Activity" description="Clicks and scrolls per time segment across all sessions.">
-        <SessionActivityChart data={data.engagementSeries} />
-      </SectionShell>
+function TestOverview({
+  data,
+  onOpenTask,
+}: {
+  data: UsabilityAnalytics;
+  onOpenTask: (taskId: string) => void;
+}) {
+  const overview = data.testOverview;
+  const weakest = [...data.tasks].sort((a, b) => b.behavior.leftBeforeSuccess - a.behavior.leftBeforeSuccess)[0];
+
+  const rows: TaskRow[] = data.tasks.map((task, index) => ({
+    id: task.id,
+    task: `Task ${index + 1} · ${task.title}`,
+    success: successCopy(task.successDefinition),
+    reached: `${task.behavior.reachedSuccess} of ${task.behavior.participantsTracked}`,
+    left: task.behavior.leftBeforeSuccess,
+    time: task.behavior.avgTimeOnTask,
+  }));
+
+  const columns: IWuTableColumnDef<TaskRow>[] = [
+    {
+      accessorKey: 'task',
+      header: 'Task',
+      cell: ({ row }) => (
+        <WuButton variant="link" onClick={() => onOpenTask(row.original.id)}>
+          {row.original.task}
+        </WuButton>
+      ),
+    },
+    { accessorKey: 'success', header: 'Success' },
+    { accessorKey: 'reached', header: 'Reached success' },
+    { accessorKey: 'left', header: 'Left' },
+    { accessorKey: 'time', header: 'Time' },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-ink-muted">
+        Across the test — not scored against a single start or success.
+      </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard label="Participants" value={String(overview.participantsTracked)} />
+        <StatCard
+          label="Finished every task"
+          value={`${overview.finishedAllTasks} of ${overview.participantsTracked}`}
+        />
+        <StatCard label="Left a task" value={String(overview.leftAnyTask)} />
+      </div>
+      <WuCard rounded className="overflow-hidden p-0 wu-shadow-sm">
+        <WuTable
+          data={rows as unknown[]}
+          columns={columns as unknown as IWuTableColumnDef<unknown>[]}
+          variant="striped"
+        />
+      </WuCard>
+      {weakest ? (
+        <p className="text-sm text-ink-muted">
+          Most people left <span className="font-medium text-ink">{weakest.title}</span>. Open that task to see the path.
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function HeatmapsSub() {
-  const [selectedPage, setSelectedPage] = useState(PAGE_OPTIONS[0]);
+interface OutcomeRow {
+  id: string;
+  how: string;
+  people: number;
+}
+
+function TaskOverview({ task }: { task: AnalyticsTaskView }) {
+  const def = task.successDefinition;
+  const b = task.behavior;
+  const outcomes: OutcomeRow[] = [
+    { id: 'direct', how: 'Direct path', people: task.outcomes.direct },
+    { id: 'recovered', how: 'Recovered, then succeeded', people: task.outcomes.divertedSuccess },
+    { id: 'left', how: 'Left before success', people: task.outcomes.left },
+  ];
+  const outcomeColumns: IWuTableColumnDef<OutcomeRow>[] = [
+    { accessorKey: 'how', header: 'How it ended' },
+    { accessorKey: 'people', header: 'People' },
+  ];
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <p className="text-sm font-medium text-gray-700">Page</p>
-        <div className="flex flex-wrap gap-2">
-          {PAGE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setSelectedPage(opt)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                selectedPage.value === opt.value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-ink">
+        Starts on {def.startLabel}. Success: {successCopy(def)}.
+      </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard label="Reached success" value={`${b.reachedSuccess} of ${b.participantsTracked}`} />
+        <StatCard label="Left before success" value={String(b.leftBeforeSuccess)} />
+        <StatCard label="Time on task" value={b.avgTimeOnTask} />
       </div>
-      <HeatmapMock title={selectedPage.value.replace('/', '') || 'home'} />
-      <p className="text-xs text-gray-500">
-        Heatmap aggregated from 24 sessions. Red/yellow zones indicate high-click density; blue zones are low-engagement areas.
+      <WuCard rounded className="overflow-hidden p-0 wu-shadow-sm">
+        <WuTable
+          data={outcomes as unknown[]}
+          columns={outcomeColumns as unknown as IWuTableColumnDef<unknown>[]}
+          variant="striped"
+        />
+      </WuCard>
+      <p className="text-sm text-ink-muted">{task.lookNext}</p>
+    </div>
+  );
+}
+
+function HeatmapsSub({ task }: { task: AnalyticsTaskView }) {
+  const options = useMemo(() => pageOptionsFrom(task), [task]);
+  const [selected, setSelected] = useState<PageOption>(
+    () => options.find((option) => option.value === task.successDefinition.startPath) ?? options[0]
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="w-56">
+        <WuSelect
+          data={options}
+          accessorKey={{ value: 'value', label: 'label' }}
+          value={options.find((option) => option.value === selected.value) ?? selected}
+          Label="Page"
+          variant="outlined"
+          onSelect={(value) => setSelected(value as PageOption)}
+        />
+      </div>
+      <HeatmapMock path={selected.value} label={selected.label} />
+      <p className="text-xs text-ink-muted">
+        Clicks from {task.behavior.participantsTracked} sessions on this page. Heatmaps show where attention went, not whether the task succeeded.
       </p>
     </div>
   );
 }
 
-function ScrollDepthSub({ data }: { data: UsabilityAnalytics }) {
-  return <ScrollDepthView allPages={data.pageScrollDepth} />;
-}
-
-function SessionReplaysSub({ data }: { data: UsabilityAnalytics }) {
+function SessionReplaysSub({ task }: { task: AnalyticsTaskView }) {
+  const { showToast } = useWuShowToast();
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {data.replays.map((r) => (
-        <div key={r.id} className="group relative rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          {/* Thumbnail mock */}
-          <div className="relative h-32 bg-gradient-to-br from-gray-700 to-gray-900">
+      {task.replays.map((r) => (
+        <WuCard key={r.id} rounded className="overflow-hidden p-0 wu-shadow-sm">
+          <div className="relative h-32 bg-[var(--qp-q-blue)]">
             <div className="absolute inset-0 flex flex-col gap-2 p-4 opacity-20">
-              <div className="h-4 w-full rounded bg-gray-400" />
-              <div className="h-12 w-full rounded bg-gray-500" />
-              <div className="h-4 w-2/3 rounded bg-gray-400" />
+              <div className="h-4 w-full rounded bg-white" />
+              <div className="h-12 w-full rounded bg-white" />
+              <div className="h-4 w-2/3 rounded bg-white" />
             </div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:scale-105"
-                aria-label={`Play session for ${r.anonymousId}`}
-              >
-                <span className="wm-play-arrow text-xl" />
-              </button>
-            </div>
-            {/* Progress bar */}
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-              <div className="h-full bg-blue-400" style={{ width: `${r.progressPct}%` }} />
+              <div className="rounded-full bg-surface">
+                <WuButton
+                  variant="iconOnly"
+                  aria-label={`Play session for ${r.anonymousId}`}
+                  Icon={<span className="wm-play-arrow" />}
+                  onClick={() =>
+                    showToast({ message: `Playing ${r.anonymousId}`, variant: 'success' })
+                  }
+                />
+              </div>
             </div>
           </div>
           <div className="p-3">
             <div className="flex items-start justify-between gap-2">
-              <p className="font-mono text-sm font-medium text-gray-800">{r.anonymousId}</p>
-              <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500">{r.device}</span>
+              <p className="font-mono text-sm font-medium text-ink">{r.anonymousId}</p>
+              <WuChip variant="secondary" size="sm">
+                {r.device}
+              </WuChip>
             </div>
-            <p className="mt-1 text-xs text-gray-500">{r.duration}</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {r.misclicks > 0 && (
-                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${r.misclicks > 2 ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
-                  {r.misclicks} misclick{r.misclicks === 1 ? '' : 's'}
-                </span>
-              )}
+            <p className="mt-1 text-xs text-ink-muted">{r.duration}</p>
+            <div className="mt-2">
+              <WuChip variant="secondary" size="sm" color={r.reachedSuccess ? undefined : 'warning'}>
+                {r.reachedSuccess ? 'Reached success' : 'Left before success'}
+              </WuChip>
             </div>
           </div>
-        </div>
+        </WuCard>
       ))}
     </div>
   );
 }
 
-function ClickPathsSub() {
+function RageMisclicksSub({ task }: { task: AnalyticsTaskView }) {
+  const columns: IWuTableColumnDef<RageMisclickRow>[] = [
+    {
+      accessorKey: 'screen',
+      header: 'Screen',
+      cell: ({ row }) => <span className="font-medium text-ink">{row.original.screen}</span>,
+    },
+    { accessorKey: 'rageClicks', header: 'Repeated clicks' },
+    { accessorKey: 'misclickRate', header: 'Off-target rate' },
+    { accessorKey: 'deadClicks', header: 'Dead clicks' },
+    {
+      accessorKey: 'severity',
+      header: 'Severity',
+      cell: ({ row }) => {
+        const severity = row.original.severity;
+        const color = severity === 'High' ? 'danger' : severity === 'Medium' ? 'warning' : undefined;
+        return (
+          <WuChip variant="secondary" size="sm" color={color}>
+            {severity}
+          </WuChip>
+        );
+      },
+    },
+  ];
+
   return (
-    <div className="space-y-4">
-      <SankeyDiagram />
-      <div className="flex gap-4 text-xs text-gray-500">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-blue-200" /> Continued
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-200" /> Dropped
-        </span>
-      </div>
-      <p className="text-xs text-gray-500">
-        Each node shows how many participants reached that screen. Dashed drop-off edges indicate exits before completing the task.
+    <div className="flex flex-col gap-3">
+      <p className="text-sm text-ink-muted">
+        Use these screens for replay review. Repeated clicks do not prove frustration on their own.
       </p>
+      <WuCard rounded className="overflow-hidden p-0 wu-shadow-sm">
+        <WuTable
+          data={task.rageMisclicks as unknown[]}
+          columns={columns as unknown as IWuTableColumnDef<unknown>[]}
+          variant="striped"
+        />
+      </WuCard>
     </div>
   );
 }
 
-function RageMisclicksSub({ data }: { data: UsabilityAnalytics }) {
-  const severityChip = (severity: string) => {
-    if (severity === 'High') return <span className="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">High</span>;
-    if (severity === 'Medium') return <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Medium</span>;
-    return <WuChip variant="secondary" size="sm">Low</WuChip>;
-  };
-
+function PickATask({ onOverview }: { onOverview: () => void }) {
   return (
-    <div className="space-y-3">
-      <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-2.5 text-sm text-red-800">
-        Screens with high rage-click counts are strong signals of user frustration. Investigate these pages first.
-      </div>
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              {['Screen', 'Rage clicks', 'Misclick rate', 'Dead clicks', 'Severity'].map((h) => (
-                <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {data.rageMisclicks.map((row) => (
-              <tr key={row.screen} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-800">{row.screen}</td>
-                <td className={`px-4 py-3 font-semibold ${row.rageClicks > 3 ? 'text-red-600' : 'text-gray-700'}`}>
-                  {row.rageClicks}
-                </td>
-                <td className="px-4 py-3 text-gray-700">{row.misclickRate}</td>
-                <td className="px-4 py-3 text-gray-700">{row.deadClicks}</td>
-                <td className="px-4 py-3">{severityChip(row.severity)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <EmptyState
+      icon="wm-filter-list"
+      title="Choose a task"
+      description="Heatmaps, paths, and replays are per task. The whole-test view stays on Overview."
+      action={
+        <WuButton variant="secondary" onClick={onOverview}>
+          Back to overview
+        </WuButton>
+      }
+    />
   );
 }
 
 export function BehaviorAnalyticsTab({ data }: { data: UsabilityAnalytics }) {
   const [subTab, setSubTab] = useState<SubTab>('overview');
+  const [scope, setScope] = useState(WHOLE_TEST);
 
-  const subTabItems: IWuTabItem[] = SUB_TABS.map((tab) => ({
-    value: tab.value,
-    Trigger: tab.label,
-    Content: <span className="sr-only">{tab.label} selected</span>,
-  }));
+  const scopeOptions: ScopeOption[] = useMemo(
+    () => [
+      { value: WHOLE_TEST, label: 'Whole test' },
+      ...data.tasks.map((task, index) => ({
+        value: task.id,
+        label: `Task ${index + 1} · ${task.title}`,
+      })),
+    ],
+    [data.tasks]
+  );
+  const selectedScope = scopeOptions.find((option) => option.value === scope) ?? scopeOptions[0];
+  const selectedTask = data.tasks.find((task) => task.id === scope) ?? null;
+  const isWholeTest = scope === WHOLE_TEST;
+
+  function handleScope(option: ScopeOption) {
+    setScope(option.value);
+    if (option.value === WHOLE_TEST) setSubTab('overview');
+  }
+
+  const subTabItems: IWuTabItem[] = SUB_TABS.map((tab) => {
+    const needsTask = tab.value !== 'overview';
+    const content =
+      tab.value !== subTab ? (
+        <WuTabPlaceholder label={tab.label} />
+      ) : isWholeTest && needsTask ? (
+        <div className="pt-4">
+          <PickATask onOverview={() => setSubTab('overview')} />
+        </div>
+      ) : (
+        <div className="pt-4">
+          {tab.value === 'overview' && (
+            isWholeTest || !selectedTask ? (
+              <TestOverview data={data} onOpenTask={(id) => { setScope(id); setSubTab('overview'); }} />
+            ) : (
+              <TaskOverview task={selectedTask} />
+            )
+          )}
+          {tab.value === 'heatmaps' && selectedTask && <HeatmapsSub key={selectedTask.id} task={selectedTask} />}
+          {tab.value === 'scroll-depth' && selectedTask && (
+            <ScrollDepthView key={selectedTask.id} allPages={selectedTask.pageScrollDepth} />
+          )}
+          {tab.value === 'session-replays' && selectedTask && (
+            <SessionReplaysSub key={selectedTask.id} task={selectedTask} />
+          )}
+          {tab.value === 'click-paths' && selectedTask && (
+            <ClickPathsView
+              key={selectedTask.id}
+              nodes={selectedTask.clickPathNodes}
+              links={selectedTask.clickPathLinks}
+            />
+          )}
+          {tab.value === 'rage-misclicks' && selectedTask && (
+            <RageMisclicksSub key={selectedTask.id} task={selectedTask} />
+          )}
+        </div>
+      );
+
+    return { value: tab.value, Trigger: tab.label, Content: content };
+  });
 
   return (
-    <div className="space-y-4">
-      <WuTab
-        items={subTabItems}
-        value={subTab}
-        onValueChange={(v) => setSubTab(v as SubTab)}
-      />
-
-      {subTab === 'overview' && <OverviewSub data={data} />}
-      {subTab === 'heatmaps' && <HeatmapsSub />}
-      {subTab === 'scroll-depth' && <ScrollDepthSub data={data} />}
-      {subTab === 'session-replays' && <SessionReplaysSub data={data} />}
-      {subTab === 'click-paths' && <ClickPathsSub />}
-      {subTab === 'rage-misclicks' && <RageMisclicksSub data={data} />}
+    <div className="flex flex-col gap-4">
+      <div className="max-w-md">
+        <WuSelect
+          data={scopeOptions}
+          accessorKey={{ value: 'value', label: 'label' }}
+          value={selectedScope}
+          Label="View"
+          variant="outlined"
+          onSelect={(value) => handleScope(value as ScopeOption)}
+        />
+      </div>
+      <WuTab items={subTabItems} value={subTab} onValueChange={(v) => setSubTab(v as SubTab)} />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { annotationsForScope, tagsForScope, themesForScope, useAiInsights } from '@/components/insights-chat/ai-insights-store';
 import { MOCK_IDI_STUDIES } from '@/data/mock-idi-studies';
 import { MOCK_MODERATED_WORKSPACE_SESSIONS } from '@/data/mock-moderated-sessions';
+import { routeId } from '@/data/route-id';
 
 const WuChip = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuChip })),
@@ -27,7 +28,7 @@ function AiSourceBadge() {
 }
 
 export default function StudyAnalyzePage() {
-  const { id } = useParams<{ id: string }>();
+  const id = routeId(useParams<{ id: string }>().id);
   const study = MOCK_IDI_STUDIES.find((item) => item.id === id);
   const sessions = MOCK_MODERATED_WORKSPACE_SESSIONS.filter((session) => session.studyId === id);
   const highlights = sessions.flatMap((session) =>

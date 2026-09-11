@@ -15,6 +15,7 @@ import {
   type TestStatus,
   type UsabilityTest,
 } from '@/data/mock-usability-tests';
+import { routeId } from '@/data/route-id';
 
 const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
@@ -64,7 +65,7 @@ function getTrackingDetail(test: UsabilityTest): string {
 }
 
 export default function UsabilityTestOverviewPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = routeId(useParams<{ id: string }>().id);
   const router = useRouter();
   const { showToast } = useWuShowToast();
   const test = MOCK_USABILITY_TESTS.find((t) => t.id === id);
@@ -107,7 +108,7 @@ export default function UsabilityTestOverviewPage() {
           </WuButton>
           <WuButton
             Icon={<span className="wm-play-arrow" />}
-            onClick={() => router.push(`/usability-tests/${id}/sessions`)}
+            onClick={() => router.push(`/usability-tests/${test.id}/sessions`)}
           >
             View Sessions
           </WuButton>
@@ -115,7 +116,7 @@ export default function UsabilityTestOverviewPage() {
       </div>
 
       <div className="mb-5 mt-4">
-        <UsabilityTestWorkspaceTabs testId={id} activeTab="overview" />
+        <UsabilityTestWorkspaceTabs testId={test.id} activeTab="overview" />
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -209,9 +210,9 @@ export default function UsabilityTestOverviewPage() {
             <WuButton
               Icon={<span className="wm-monitoring" />}
               variant="secondary"
-              onClick={() => router.push(`/usability-tests/${id}/analyze`)}
+              onClick={() => router.push(`/usability-tests/${test.id}/analyze`)}
             >
-              View Behavior Analytics
+              View behavior analytics
             </WuButton>
           </div>
         </OverviewCard>

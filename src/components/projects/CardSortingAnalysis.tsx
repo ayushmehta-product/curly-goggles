@@ -98,7 +98,7 @@ export function CardSortingAnalysis({ onFilter }: CardSortingAnalysisProps) {
           <h3 className="mt-1 text-base font-semibold text-ink">{analysis.prompt}</h3>
         </div>
         <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-4">
-          <Stat label="Participants" value={String(analysis.participantCount)} hint="NN/g: 30–50 for quantitative" />
+          <Stat label="Participants" value={String(analysis.participantCount)} hint="30–50 for a quantitative sort" />
           <Stat label="Avg. time" value={`${analysis.avgTimeSeconds}s`} hint="Time to finish the sort" />
           <Stat label="Unsorted" value={`${analysis.unsortedRate}%`} hint="Left aside instead of forced" />
           <Stat

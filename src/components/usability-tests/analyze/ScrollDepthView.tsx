@@ -1,233 +1,143 @@
 'use client';
 
-import { useState, useRef, KeyboardEvent } from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from 'recharts';
+import { useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import type { IWuSwitcherOptions } from '@npm-questionpro/wick-ui-lib';
 import type { PageScrollDepthData } from '@/data/mock-usability-analytics';
 
-// ---------------------------------------------------------------------------
-// Horizontal bar chart tooltip
-// ---------------------------------------------------------------------------
-interface DepthTooltipProps {
-  active?: boolean;
-  payload?: Array<{ payload: PageScrollDepthData }>;
-  label?: string;
-}
+const WuCard = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuCard })),
+  { ssr: false }
+);
+const WuSelect = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSelect })),
+  { ssr: false }
+);
+const WuSwitcher = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSwitcher })),
+  { ssr: false }
+);
+const WuTooltip = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTooltip })),
+  { ssr: false }
+);
 
-function DepthTooltip({ active, payload }: DepthTooltipProps) {
-  if (!active || !payload || payload.length === 0) return null;
-  const d = payload[0].payload;
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-md text-xs">
-      <p className="mb-1.5 font-semibold text-gray-700">{d.label}</p>
-      <div className="space-y-1">
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-gray-500">Avg scroll depth</span>
-          <span className="font-semibold text-indigo-600">{d.avgScrollDepth}%</span>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-gray-500">Reached 25%</span>
-          <span className="font-medium">{d.reached25}%</span>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-gray-500">Reached 50%</span>
-          <span className="font-medium">{d.reached50}%</span>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-gray-500">Reached 75%</span>
-          <span className="font-medium">{d.reached75}%</span>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-gray-500">Reached 100%</span>
-          <span className="font-medium">{d.reached100}%</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+type ScrollView = 'overlay' | 'compare';
+type PageOption = { value: string; label: string };
 
-// ---------------------------------------------------------------------------
-// Horizontal bar chart (multi-page comparison)
-// ---------------------------------------------------------------------------
-function ScrollDepthBarChart({ pages }: { pages: PageScrollDepthData[] }) {
-  const chartHeight = Math.max(120, pages.length * 52 + 40);
-
-  return (
-    <ResponsiveContainer width="100%" height={chartHeight}>
-      <BarChart
-        layout="vertical"
-        data={pages}
-        margin={{ top: 0, right: 48, left: 0, bottom: 0 }}
-        barCategoryGap="28%"
-      >
-        <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" horizontal={false} />
-        <XAxis
-          type="number"
-          domain={[0, 100]}
-          tickFormatter={(v) => `${v}%`}
-          axisLine={false}
-          tickLine={false}
-          tick={{ fontSize: 11, fill: '#9CA3AF' }}
-          dy={4}
-        />
-        <YAxis
-          type="category"
-          dataKey="label"
-          width={110}
-          axisLine={false}
-          tickLine={false}
-          tick={{ fontSize: 12, fill: '#374151' }}
-        />
-        <Tooltip content={<DepthTooltip />} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
-        <Bar dataKey="avgScrollDepth" name="Avg Scroll Depth" radius={[0, 4, 4, 0]} maxBarSize={28}>
-          {pages.map((p) => (
-            <Cell
-              key={p.path}
-              fill={
-                p.avgScrollDepth >= 75
-                  ? '#22C55E'
-                  : p.avgScrollDepth >= 55
-                  ? '#6366F1'
-                  : p.avgScrollDepth >= 40
-                  ? '#F59E0B'
-                  : '#EF4444'
-              }
-            />
-          ))}
-          {/* Background track */}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Hotjar-style scroll depth overlay (single page)
-// ---------------------------------------------------------------------------
-const HOTJAR_PARTICIPANTS = [
-  { id: 'Anon:626', stopPct: 82, color: '#3B82F6' },
-  { id: 'Anon:412', stopPct: 34, color: '#8B5CF6' },
-  { id: 'Anon:891', stopPct: 91, color: '#EC4899' },
-  { id: 'Anon:247', stopPct: 61, color: '#F59E0B' },
-  { id: 'Anon:119', stopPct: 48, color: '#14B8A6' },
-  { id: 'Anon:334', stopPct: 27, color: '#EF4444' },
+const VIEW_OPTIONS: IWuSwitcherOptions<ScrollView> = [
+  { value: 'overlay', label: 'On this page' },
+  { value: 'compare', label: 'Compare pages' },
 ];
 
-const PAGE_SECTIONS: Record<string, { label: string; blocks: { h: string; color: string }[] }> = {
+const SCROLL_STOPS = [
+  { id: 'Anon:626', stopPct: 82, color: '#1B87E6' },
+  { id: 'Anon:412', stopPct: 34, color: '#1B3380' },
+  { id: 'Anon:891', stopPct: 91, color: '#545E6B' },
+  { id: 'Anon:247', stopPct: 61, color: '#F5A300' },
+  { id: 'Anon:119', stopPct: 48, color: '#9B9B9B' },
+  { id: 'Anon:334', stopPct: 27, color: '#C45656' },
+];
+
+const PAGE_SECTIONS: Record<string, { blocks: { h: string; color: string }[] }> = {
   default: {
-    label: 'Page',
     blocks: [
-      { h: 'h-14', color: 'bg-gray-700' },
-      { h: 'h-24', color: 'bg-gray-600' },
-      { h: 'h-16', color: 'bg-gray-500' },
-      { h: 'h-20', color: 'bg-gray-600' },
-      { h: 'h-12', color: 'bg-gray-500' },
-      { h: 'h-24', color: 'bg-gray-600' },
+      { h: 'h-14', color: 'bg-[var(--qp-q-blue)]' },
+      { h: 'h-24', color: 'bg-ink' },
+      { h: 'h-16', color: 'bg-ink-muted' },
+      { h: 'h-20', color: 'bg-ink' },
+      { h: 'h-12', color: 'bg-ink-muted' },
+      { h: 'h-24', color: 'bg-ink' },
     ],
   },
   '/': {
-    label: 'Home',
     blocks: [
-      { h: 'h-16', color: 'bg-blue-900' },
-      { h: 'h-28', color: 'bg-blue-800' },
-      { h: 'h-16', color: 'bg-gray-700' },
-      { h: 'h-20', color: 'bg-gray-600' },
-      { h: 'h-14', color: 'bg-gray-700' },
+      { h: 'h-16', color: 'bg-[var(--qp-q-blue)]' },
+      { h: 'h-28', color: 'bg-accent' },
+      { h: 'h-16', color: 'bg-ink' },
+      { h: 'h-20', color: 'bg-ink-muted' },
+      { h: 'h-14', color: 'bg-ink' },
     ],
   },
   '/checkout': {
-    label: 'Checkout',
     blocks: [
-      { h: 'h-10', color: 'bg-gray-700' },
-      { h: 'h-16', color: 'bg-gray-600' },
-      { h: 'h-24', color: 'bg-gray-500' },
-      { h: 'h-16', color: 'bg-gray-600' },
-      { h: 'h-20', color: 'bg-gray-700' },
-      { h: 'h-12', color: 'bg-gray-500' },
+      { h: 'h-10', color: 'bg-ink' },
+      { h: 'h-16', color: 'bg-ink-muted' },
+      { h: 'h-24', color: 'bg-[var(--qp-gray-100)]' },
+      { h: 'h-16', color: 'bg-ink-muted' },
+      { h: 'h-20', color: 'bg-ink' },
+      { h: 'h-12', color: 'bg-[var(--qp-gray-100)]' },
     ],
   },
   '/product': {
-    label: 'Product',
     blocks: [
-      { h: 'h-20', color: 'bg-gray-700' },
-      { h: 'h-28', color: 'bg-gray-600' },
-      { h: 'h-12', color: 'bg-gray-500' },
-      { h: 'h-16', color: 'bg-gray-600' },
-      { h: 'h-20', color: 'bg-gray-700' },
+      { h: 'h-20', color: 'bg-ink' },
+      { h: 'h-28', color: 'bg-ink-muted' },
+      { h: 'h-12', color: 'bg-[var(--qp-gray-100)]' },
+      { h: 'h-16', color: 'bg-ink-muted' },
+      { h: 'h-20', color: 'bg-ink' },
     ],
   },
 };
 
 const BAND_CONFIG = [
-  { label: '25%', color: 'rgba(34,197,94,0.18)', textColor: 'text-green-700', borderColor: 'border-green-300', reached: 'reached25' },
-  { label: '50%', color: 'rgba(250,204,21,0.18)', textColor: 'text-yellow-700', borderColor: 'border-yellow-300', reached: 'reached50' },
-  { label: '75%', color: 'rgba(249,115,22,0.18)', textColor: 'text-orange-700', borderColor: 'border-orange-300', reached: 'reached75' },
-  { label: '100%', color: 'rgba(239,68,68,0.18)', textColor: 'text-red-700', borderColor: 'border-red-300', reached: 'reached100' },
-] as const;
+  { label: '25%', color: 'rgba(223,242,191,0.55)', reached: 'reached25' as const },
+  { label: '50%', color: 'rgba(254,239,179,0.55)', reached: 'reached50' as const },
+  { label: '75%', color: 'rgba(245,163,0,0.22)', reached: 'reached75' as const },
+  { label: '100%', color: 'rgba(255,186,186,0.55)', reached: 'reached100' as const },
+];
 
-function HotjarOverlay({ page }: { page: PageScrollDepthData }) {
+function barFill(pct: number): string {
+  if (pct >= 75) return '#1B3380';
+  if (pct >= 55) return '#1B87E6';
+  if (pct >= 40) return '#F5A300';
+  return '#C45656';
+}
+
+function ScrollDepthOverlay({ page }: { page: PageScrollDepthData }) {
   const sections = PAGE_SECTIONS[page.path] ?? PAGE_SECTIONS.default;
-  const pageHeight = 400;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 shadow-md">
-      {/* Browser chrome */}
-      <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-100 px-3 py-2">
+    <WuCard rounded className="overflow-hidden p-0 wu-shadow-sm">
+      <div className="flex items-center gap-2 border-b border-line bg-[var(--qp-gray-20)] px-3 py-2">
         <div className="flex gap-1.5">
-          <span className="h-3 w-3 rounded-full bg-red-400" />
-          <span className="h-3 w-3 rounded-full bg-amber-400" />
-          <span className="h-3 w-3 rounded-full bg-green-400" />
+          <span className="h-3 w-3 rounded-full bg-[#FFBABA]" />
+          <span className="h-3 w-3 rounded-full bg-[#FEEFB3]" />
+          <span className="h-3 w-3 rounded-full bg-[#DFF2BF]" />
         </div>
-        <div className="flex-1 rounded bg-white px-2 py-1 text-xs text-gray-400">
-          example.com{page.path}
+        <div className="flex-1 rounded bg-surface px-2 py-1 text-xs text-ink-muted">
+          example.com{page.path === '/' ? '' : page.path}
         </div>
       </div>
 
-      {/* Main overlay area */}
-      <div className="relative bg-gray-800" style={{ height: pageHeight }}>
-        {/* Page content mock (background) */}
+      <div className="relative bg-ink" style={{ height: 400 }}>
         <div className="absolute inset-0 flex flex-col gap-2 p-4 opacity-25">
           {sections.blocks.map((block, i) => (
             <div key={i} className={`w-full rounded ${block.h} ${block.color}`} />
           ))}
         </div>
 
-        {/* Scroll depth bands */}
         {BAND_CONFIG.map((band, idx) => {
-          const pct = page[band.reached as keyof PageScrollDepthData] as number;
-          const topPct = idx * 25;
-          const heightPct = 25;
+          const pct = page[band.reached];
           return (
             <div
               key={band.label}
-              className="absolute left-0 right-0 transition-opacity"
+              className="absolute left-0 right-0"
               style={{
-                top: `${topPct}%`,
-                height: `${heightPct}%`,
+                top: `${idx * 25}%`,
+                height: '25%',
                 backgroundColor: band.color,
               }}
             >
-              {/* % label on right side */}
               <div
-                className={`absolute right-2 flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-semibold ${band.textColor}`}
-                style={{ top: '50%', transform: 'translateY(-50%)', backgroundColor: 'rgba(255,255,255,0.85)' }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-surface px-2 py-0.5 text-xs font-semibold text-ink"
               >
-                <span className="wm-people text-xs" />
                 {pct}% reached {band.label}
               </div>
             </div>
           );
         })}
 
-        {/* Band boundary lines */}
         {[25, 50, 75].map((pct) => (
           <div
             key={pct}
@@ -236,24 +146,16 @@ function HotjarOverlay({ page }: { page: PageScrollDepthData }) {
           />
         ))}
 
-        {/* Individual participant scroll-stop lines */}
-        {HOTJAR_PARTICIPANTS.map((p) => (
+        {SCROLL_STOPS.map((p) => (
           <div
             key={p.id}
             className="absolute left-0 right-0 flex items-center"
             style={{ top: `${p.stopPct}%` }}
           >
+            <div className="h-px w-full opacity-70" style={{ backgroundColor: p.color }} />
             <div
-              className="h-px w-full opacity-70"
-              style={{ backgroundColor: p.color }}
-            />
-            <div
-              className="absolute left-2 rounded px-1 py-px font-mono text-[10px]"
-              style={{
-                backgroundColor: p.color,
-                color: '#fff',
-                transform: 'translateY(-50%)',
-              }}
+              className="absolute left-2 rounded px-1 py-px font-mono text-[10px] text-white"
+              style={{ backgroundColor: p.color, transform: 'translateY(-50%)' }}
             >
               {p.id}
             </div>
@@ -261,236 +163,106 @@ function HotjarOverlay({ page }: { page: PageScrollDepthData }) {
         ))}
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-3 border-t border-gray-200 bg-white px-4 py-2.5 text-xs text-gray-500">
-        <span className="font-medium text-gray-700">Participants:</span>
-        {HOTJAR_PARTICIPANTS.map((p) => (
+      <div className="flex flex-wrap items-center gap-3 border-t border-line bg-surface px-4 py-2.5 text-xs text-ink-muted">
+        <span className="font-medium text-ink">Where people stopped</span>
+        {SCROLL_STOPS.map((p) => (
           <span key={p.id} className="flex items-center gap-1">
             <span className="inline-block h-2 w-4 rounded-sm" style={{ backgroundColor: p.color }} />
             {p.id}
           </span>
         ))}
       </div>
-    </div>
+    </WuCard>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Page chip (selectable)
-// ---------------------------------------------------------------------------
-function PageChip({
-  label,
-  selected,
-  onToggle,
-  onRemove,
-  isCustom,
-}: {
-  label: string;
-  selected: boolean;
-  onToggle: () => void;
-  onRemove?: () => void;
-  isCustom?: boolean;
-}) {
+function ComparePagesChart({ pages }: { pages: PageScrollDepthData[] }) {
   return (
-    <span
-      className={`inline-flex cursor-pointer items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition select-none ${
-        selected
-          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-      }`}
-      onClick={onToggle}
-      role="checkbox"
-      aria-checked={selected}
-      tabIndex={0}
-      onKeyDown={(e: KeyboardEvent) => e.key === ' ' && onToggle()}
-    >
-      <span className="wm-language text-xs" aria-hidden="true" />
-      {label}
-      {isCustom && onRemove && (
-        <button
-          type="button"
-          aria-label={`Remove ${label}`}
-          className="ml-0.5 text-gray-400 hover:text-red-500"
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        >
-          <span className="wm-close text-xs" />
-        </button>
-      )}
-    </span>
+    <WuCard rounded className="p-4 wu-shadow-sm">
+      <p className="text-sm font-semibold text-ink">How far people reached</p>
+      <p className="mb-4 text-xs text-ink-muted">
+        Average depth is a weak signal on its own. Compare the start page with the success page.
+      </p>
+      <div className="flex flex-col gap-3">
+        {pages.map((page) => (
+          <WuTooltip
+            key={page.path}
+            content={`25% ${page.reached25}% · 50% ${page.reached50}% · 75% ${page.reached75}% · end ${page.reached100}%`}
+          >
+            <div className="flex items-center gap-3">
+              <p className="w-28 shrink-0 truncate text-sm text-ink">
+                {page.label}
+                {page.isStart ? ' (start)' : page.isSuccess ? ' (success)' : ''}
+              </p>
+              <div className="h-6 min-w-0 flex-1 rounded bg-[var(--qp-gray-20)]">
+                <div
+                  className="h-full rounded"
+                  style={{ width: `${page.avgScrollDepth}%`, backgroundColor: barFill(page.avgScrollDepth) }}
+                />
+              </div>
+              <p className="w-10 shrink-0 text-right text-sm font-medium text-ink">{page.avgScrollDepth}%</p>
+            </div>
+          </WuTooltip>
+        ))}
+      </div>
+    </WuCard>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main ScrollDepthView export
-// ---------------------------------------------------------------------------
 export function ScrollDepthView({ allPages }: { allPages: PageScrollDepthData[] }) {
-  const [selectedPaths, setSelectedPaths] = useState<string[]>(allPages.map((p) => p.path));
-  const [customPages, setCustomPages] = useState<PageScrollDepthData[]>([]);
-  const [addInput, setAddInput] = useState('');
-  const [viewMode, setViewMode] = useState<'chart' | 'overlay'>('chart');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const allAvailable = [...allPages, ...customPages];
-  const selectedPages = allAvailable.filter((p) => selectedPaths.includes(p.path));
-  const singlePage = selectedPages.length === 1 ? selectedPages[0] : null;
-
-  function togglePage(path: string) {
-    setSelectedPaths((prev) =>
-      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]
-    );
-  }
-
-  function handleAddPage() {
-    const raw = addInput.trim();
-    if (!raw) return;
-    const path = raw.startsWith('/') ? raw : `/${raw}`;
-    if (allAvailable.some((p) => p.path === path)) {
-      setSelectedPaths((prev) => (prev.includes(path) ? prev : [...prev, path]));
-      setAddInput('');
-      return;
-    }
-    const newPage: PageScrollDepthData = {
-      path,
-      label: path,
-      avgScrollDepth: 0,
-      reached25: 0,
-      reached50: 0,
-      reached75: 0,
-      reached100: 0,
-    };
-    setCustomPages((prev) => [...prev, newPage]);
-    setSelectedPaths((prev) => [...prev, path]);
-    setAddInput('');
-  }
-
-  function handleRemoveCustom(path: string) {
-    setCustomPages((prev) => prev.filter((p) => p.path !== path));
-    setSelectedPaths((prev) => prev.filter((p) => p !== path));
-  }
+  const pageOptions = useMemo<PageOption[]>(
+    () =>
+      allPages.map((page) => ({
+        value: page.path,
+        label: page.isStart ? `${page.label} (start)` : page.isSuccess ? `${page.label} (success)` : page.label,
+      })),
+    [allPages]
+  );
+  const [view, setView] = useState<ScrollView>('overlay');
+  const defaultPath = allPages.find((page) => page.isSuccess)?.path ?? allPages[0]?.path ?? '/';
+  const [selectedPath, setSelectedPath] = useState(defaultPath);
+  const selectedPage = allPages.find((page) => page.path === selectedPath) ?? allPages[0];
+  const selectedOption = pageOptions.find((option) => option.value === selectedPath) ?? pageOptions[0];
 
   return (
-    <div className="space-y-4">
-      {/* Page picker */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-          Pages / Steps to analyse
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {allAvailable.map((p) => (
-            <PageChip
-              key={p.path}
-              label={p.label}
-              selected={selectedPaths.includes(p.path)}
-              onToggle={() => togglePage(p.path)}
-              isCustom={customPages.some((c) => c.path === p.path)}
-              onRemove={() => handleRemoveCustom(p.path)}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        {view === 'overlay' ? (
+          <div className="w-56">
+            <WuSelect
+              data={pageOptions}
+              accessorKey={{ value: 'value', label: 'label' }}
+              value={selectedOption}
+              Label="Page"
+              variant="outlined"
+              onSelect={(value) => setSelectedPath((value as PageOption).value)}
             />
-          ))}
-
-          {/* Add input */}
-          <div className="flex items-center gap-1.5 rounded-full border border-dashed border-gray-300 bg-gray-50 pl-2.5 pr-1 py-0.5">
-            <span className="wm-add text-xs text-gray-400" aria-hidden="true" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={addInput}
-              onChange={(e) => setAddInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddPage()}
-              placeholder="Add page…"
-              className="w-24 bg-transparent text-xs text-gray-600 placeholder-gray-400 outline-none"
-            />
-            <button
-              type="button"
-              onClick={handleAddPage}
-              disabled={!addInput.trim()}
-              className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white disabled:opacity-40 hover:bg-indigo-700 transition"
-            >
-              Add
-            </button>
           </div>
-        </div>
-      </div>
-
-      {/* Chart header with view toggle */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-gray-800">Scroll Depth by Page</p>
-          <p className="text-xs text-gray-500">
-            {selectedPages.length === 0
-              ? 'Select at least one page above'
-              : `Showing ${selectedPages.length} page${selectedPages.length === 1 ? '' : 's'} · Average scroll depth %`}
-          </p>
-        </div>
-
-        {/* Toggle — only when one page selected */}
-        {singlePage && (
-          <div className="flex shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white text-xs font-medium shadow-sm">
-            <button
-              type="button"
-              onClick={() => setViewMode('chart')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 transition ${
-                viewMode === 'chart'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <span className="wm-bar-chart text-sm" aria-hidden="true" />
-              Chart
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('overlay')}
-              className={`flex items-center gap-1.5 border-l border-gray-200 px-3 py-1.5 transition ${
-                viewMode === 'overlay'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <span className="wm-layers text-sm" aria-hidden="true" />
-              Page Overlay
-            </button>
-          </div>
+        ) : (
+          <p className="text-sm text-ink-muted">All pages in this task — start and success are labelled</p>
         )}
+        <WuSwitcher
+          options={VIEW_OPTIONS}
+          value={view}
+          onChange={(value) => setView(value as ScrollView)}
+          type="tab"
+          size="md"
+        />
       </div>
 
-      {/* Content */}
-      {selectedPages.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center">
-          <span className="wm-layers text-3xl text-gray-300" aria-hidden="true" />
-          <p className="mt-2 text-sm text-gray-400">Select pages above to visualise scroll depth</p>
-        </div>
-      ) : singlePage && viewMode === 'overlay' ? (
-        <HotjarOverlay page={singlePage} />
-      ) : (
+      {view === 'overlay' && selectedPage ? (
         <>
-          <ScrollDepthBarChart pages={selectedPages} />
-
-          {/* Reach breakdown cards */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {selectedPages.length === 1 && singlePage ? (
-              <>
-                {([
-                  { label: 'Reached 25%', val: singlePage.reached25, bg: 'bg-green-50', text: 'text-green-700' },
-                  { label: 'Reached 50%', val: singlePage.reached50, bg: 'bg-yellow-50', text: 'text-yellow-700' },
-                  { label: 'Reached 75%', val: singlePage.reached75, bg: 'bg-orange-50', text: 'text-orange-700' },
-                  { label: 'Reached 100%', val: singlePage.reached100, bg: 'bg-red-50', text: 'text-red-700' },
-                ] as const).map(({ label, val, bg, text }) => (
-                  <div key={label} className={`rounded-lg border border-gray-200 ${bg} p-3 text-center`}>
-                    <p className={`text-lg font-bold ${text}`}>{val}%</p>
-                    <p className="text-xs text-gray-500">{label}</p>
-                  </div>
-                ))}
-              </>
-            ) : (
-              selectedPages.slice(0, 4).map((p) => (
-                <div key={p.path} className="rounded-lg border border-gray-200 bg-white p-3 text-center shadow-sm">
-                  <p className="text-lg font-bold text-indigo-600">{p.avgScrollDepth}%</p>
-                  <p className="truncate text-xs text-gray-500">{p.label}</p>
-                </div>
-              ))
-            )}
-          </div>
+          <ScrollDepthOverlay page={selectedPage} />
+          <p className="text-xs text-ink-muted">
+            {selectedPage.isSuccess
+              ? 'This is the success page. If success is a section further down, people who never reached it could not complete the task.'
+              : selectedPage.isStart
+                ? 'This is the start page. Depth here shows whether people moved on — not whether they succeeded.'
+                : 'Share of people who reached each depth. Depth is not success unless you defined success as a section on this page.'}
+          </p>
         </>
+      ) : (
+        <ComparePagesChart pages={allPages} />
       )}
     </div>
   );

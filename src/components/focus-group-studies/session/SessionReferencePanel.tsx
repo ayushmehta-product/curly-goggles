@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import type { IWuTabItem } from '@npm-questionpro/wick-ui-lib';
+import { WuTabPlaceholder } from '@/components/ui/WuTabPlaceholder';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import type { AiAnnotation, AiTag } from '@/data/mock-ai-insights';
 import type {
@@ -252,7 +253,7 @@ export function SessionReferencePanel({
   const items: IWuTabItem[] = REFERENCE_PANEL_TABS.map((tab) => ({
     value: tab.value,
     Trigger: tab.label,
-    Content: <span className="sr-only">{tab.label} selected</span>,
+    Content: <WuTabPlaceholder label={tab.label} />,
   }));
 
   return (

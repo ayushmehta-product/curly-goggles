@@ -198,10 +198,38 @@ a.text-accent:hover,
 }
 
 /*
- * WuSidebar's content slot defaults to height:100% + overflow:auto, which
- * traps scroll inside a fixed viewport. Override so page content can grow
- * and the document scrolls normally.
+ * WuSidebar's workarea defaults to a fixed viewport height. Let list pages
+ * grow so dummy rows are not clipped below the fold. Keep overflow visible
+ * on main only — overflowing the wrapper lets the rail steal clicks on
+ * study title links.
  */
+.wu-group\/sidebar-wrapper {
+  height: auto !important;
+  min-height: calc(100svh - 48px);
+}
+
+.wu-group\/sidebar-wrapper > main,
+[data-sidebar='sidebar'] ~ main {
+  height: auto !important;
+  min-height: calc(100svh - 48px);
+  overflow: visible !important;
+}
+
+/*
+ * Navigation-only WuTabs must still pass Content. Collapse placeholder
+ * panels so they cannot cover dummy study data or intercept Analyze links.
+ */
+[role='tabpanel']:has([data-qp-tab-placeholder]) {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  border: none !important;
+}
+
 ._content_1cpdq_13 {
   height: auto !important;
   overflow: visible !important;

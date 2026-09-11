@@ -10,9 +10,11 @@ import { BehaviorAnalyticsTab } from '@/components/usability-tests/analyze/Behav
 import { UXDiagnosticsTab } from '@/components/usability-tests/analyze/UXDiagnosticsTab';
 import { BenchmarksTab } from '@/components/usability-tests/analyze/BenchmarksTab';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { WuTabPlaceholder } from '@/components/ui/WuTabPlaceholder';
 import { MOCK_USABILITY_TESTS } from '@/data/mock-usability-tests';
 import { MOCK_USABILITY_ANALYTICS } from '@/data/mock-usability-analytics';
 import { formatDate } from '@/data/mock-utils';
+import { routeId } from '@/data/route-id';
 
 const WuTab = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTab })),
@@ -22,7 +24,7 @@ const WuTab = dynamic(
 type AnalyzeTab = 'behavior' | 'diagnostics' | 'benchmarks';
 
 export default function UsabilityTestAnalyzePage() {
-  const { id } = useParams<{ id: string }>();
+  const id = routeId(useParams<{ id: string }>().id);
   const [activeTab, setActiveTab] = useState<AnalyzeTab>('behavior');
 
   const test = MOCK_USABILITY_TESTS.find((t) => t.id === id);
@@ -45,21 +47,27 @@ export default function UsabilityTestAnalyzePage() {
       value: 'behavior',
       Trigger: (
         <span className="flex items-center gap-1.5">
-          Behavior Analytics
+          Behavior analytics
           <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">New</span>
         </span>
       ),
-      Content: <span className="sr-only">Behavior Analytics selected</span>,
+      Content: activeTab === 'behavior'
+        ? <div className="pt-4"><BehaviorAnalyticsTab data={analytics} /></div>
+        : <WuTabPlaceholder label="Behavior analytics" />,
     },
     {
       value: 'diagnostics',
-      Trigger: 'UX Diagnostics',
-      Content: <span className="sr-only">UX Diagnostics selected</span>,
+      Trigger: 'UX diagnostics',
+      Content: activeTab === 'diagnostics'
+        ? <div className="pt-4"><UXDiagnosticsTab data={analytics} /></div>
+        : <WuTabPlaceholder label="UX diagnostics" />,
     },
     {
       value: 'benchmarks',
       Trigger: 'Benchmarks',
-      Content: <span className="sr-only">Benchmarks selected</span>,
+      Content: activeTab === 'benchmarks'
+        ? <div className="pt-4"><BenchmarksTab data={analytics} /></div>
+        : <WuTabPlaceholder label="Benchmarks" />,
     },
   ];
 
@@ -93,7 +101,7 @@ export default function UsabilityTestAnalyzePage() {
 
       {/* Workspace tabs */}
       <div className="mb-5">
-        <UsabilityTestWorkspaceTabs testId={id} activeTab="analyze" />
+        <UsabilityTestWorkspaceTabs testId={test.id} activeTab="analyze" />
       </div>
 
       {/* Top-level analysis tabs */}
@@ -104,10 +112,6 @@ export default function UsabilityTestAnalyzePage() {
           onValueChange={(v) => setActiveTab(v as AnalyzeTab)}
         />
       </div>
-
-      {activeTab === 'behavior' && <BehaviorAnalyticsTab data={analytics} />}
-      {activeTab === 'diagnostics' && <UXDiagnosticsTab data={analytics} />}
-      {activeTab === 'benchmarks' && <BenchmarksTab data={analytics} />}
     </div>
   );
 }

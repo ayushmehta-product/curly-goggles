@@ -168,7 +168,8 @@ export function FocusGroupsTable({
           <Link
             href={`/focus-group-studies/${focusGroup.id}`}
             title={focusGroup.title}
-            className="block max-w-[400px] font-medium text-blue-600 hover:underline"
+            className="relative z-[1] block max-w-[400px] font-medium text-blue-600 hover:underline"
+            onClick={(event) => event.stopPropagation()}
           >
             {truncate(focusGroup.title, 86)}
           </Link>
@@ -234,6 +235,7 @@ export function FocusGroupsTable({
           columns={columns as unknown as IWuTableColumnDef<unknown>[]}
           variant="striped"
           sort={{ enabled: true }}
+          filterText=""
           NoDataContent={noDataContent}
         />
       </div>

@@ -12,6 +12,10 @@ const WuSidebarItem = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSidebarItem })),
   { ssr: false }
 );
+const WuSidebarGroup = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSidebarGroup })),
+  { ssr: false }
+);
 
 const NAV_ITEMS = [
   {
@@ -62,6 +66,14 @@ export function SideNav() {
           <Link href={item.href}>{item.label}</Link>
         </WuSidebarItem>
       ))}
+      <WuSidebarGroup label="Beta features">
+        <WuSidebarItem
+          Icon={<span className="wm-science" />}
+          isActive={pathname.startsWith('/beta-features')}
+        >
+          <Link href="/beta-features/click-scroll-tracking">Click &amp; scroll tracking setup</Link>
+        </WuSidebarItem>
+      </WuSidebarGroup>
     </WuSidebarContent>
   );
 }

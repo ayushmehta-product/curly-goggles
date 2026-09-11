@@ -7,9 +7,10 @@ import { FocusGroupSessionWorkspace } from '@/components/focus-group-studies/Foc
 import { MOCK_FOCUS_GROUPS } from '@/data/mock-focus-groups';
 import { MOCK_FOCUS_GROUP_WORKSPACES } from '@/data/mock-focus-group-scheduling';
 import { MOCK_FOCUS_GROUP_SESSIONS } from '@/data/mock-focus-group-session';
+import { routeId } from '@/data/route-id';
 
 export default function FocusGroupSessionPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = routeId(useParams<{ id: string }>().id);
 
   const focusGroup = MOCK_FOCUS_GROUPS.find((item) => item.id === id);
   const workspace =

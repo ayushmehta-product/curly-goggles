@@ -7,6 +7,7 @@ import type { IWuTabItem } from '@npm-questionpro/wick-ui-lib';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { WuTabPlaceholder } from '@/components/ui/WuTabPlaceholder';
 import { DeleteFocusGroupModal } from '@/components/focus-group-studies/DeleteFocusGroupModal';
 import { FocusGroupsTable } from '@/components/focus-group-studies/FocusGroupsTable';
 import { StudyStats, type StudyStat } from '@/components/idi-studies/StudyStats';
@@ -176,13 +177,41 @@ export default function FocusGroupStudiesPage() {
   const tabItems: IWuTabItem[] = TAB_ITEMS.map((tab) => {
     const count =
       tab.value === 'all' ? focusGroups.length : focusGroups.filter((item) => item.status === tab.value).length;
+    const visibleFocusGroups = getFilteredFocusGroups(tab.value);
     return {
       value: tab.value,
       Trigger: `${tab.label} (${count})`,
-      Content: <span className="sr-only">{tab.label} focus groups selected</span>,
+      Content: tab.value !== activeTab ? (
+        <WuTabPlaceholder label={tab.label} />
+      ) : (
+        <div className="relative z-[1] pt-4">
+          <div className="mb-3 max-w-sm">
+            <WuInput
+              Icon={<span className="wm-search" />}
+              iconPosition="left"
+              variant="outlined"
+              placeholder="Search focus groups"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+          <div className="mb-3 flex items-center justify-between text-xs text-gray-500">
+            <span>
+              Showing {isLoading ? '...' : visibleFocusGroups.length} of {focusGroups.length} focus groups
+            </span>
+          </div>
+          <FocusGroupsTable
+            focusGroups={visibleFocusGroups}
+            isLoading={isLoading}
+            noDataContent={renderNoDataContent(tab.value)}
+            onDuplicate={handleDuplicate}
+            onArchive={handleArchive}
+            onDelete={setDeleteTarget}
+          />
+        </div>
+      ),
     };
   });
-  const visibleFocusGroups = getFilteredFocusGroups(activeTab);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -199,35 +228,9 @@ export default function FocusGroupStudiesPage() {
       <StudyStats stats={stats} />
       <WuTab
         items={tabItems}
-        defaultValue="all"
+        value={activeTab}
         onValueChange={(value) => setActiveTab(value as TabValue)}
       />
-
-      <div className="pt-4">
-        <div className="mb-3 max-w-sm">
-          <WuInput
-            Icon={<span className="wm-search" />}
-            iconPosition="left"
-            variant="outlined"
-            placeholder="Search focus groups"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
-        <div className="mb-3 flex items-center justify-between text-xs text-gray-500">
-          <span>
-            Showing {isLoading ? '...' : visibleFocusGroups.length} of {focusGroups.length} focus groups
-          </span>
-        </div>
-        <FocusGroupsTable
-          focusGroups={visibleFocusGroups}
-          isLoading={isLoading}
-          noDataContent={renderNoDataContent(activeTab)}
-          onDuplicate={handleDuplicate}
-          onArchive={handleArchive}
-          onDelete={setDeleteTarget}
-        />
-      </div>
 
       <DeleteFocusGroupModal
         focusGroup={deleteTarget}

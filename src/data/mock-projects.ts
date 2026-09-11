@@ -1,5 +1,5 @@
 import type { TreeTestingConfig } from '@/data/mock-tree-testing';
-import { MOCK_DUNKIN_TREE, MOCK_FINDABILITY_TASKS } from '@/data/mock-tree-testing';
+import { MOCK_DUNKIN_TREE, MOCK_FINDABILITY_TASKS, cloneFindabilityTask } from '@/data/mock-tree-testing';
 import { cloneTree } from '@/data/tree-utils';
 import type { CardSortingConfig } from '@/data/mock-card-sorting';
 import { demoCardSortingConfig } from '@/data/mock-card-sorting';
@@ -218,10 +218,7 @@ export const MOCK_FOLDER_STUDIES: FolderStudy[] = [
             type: 'tree-testing',
             treeTesting: {
               tree: cloneTree(MOCK_DUNKIN_TREE),
-              findabilityTasks: MOCK_FINDABILITY_TASKS.map((task) => ({
-                ...task,
-                correctLeafIds: [...task.correctLeafIds],
-              })),
+              findabilityTasks: MOCK_FINDABILITY_TASKS.map(cloneFindabilityTask),
             },
           },
           {

@@ -170,7 +170,8 @@ export function StudiesTable({
             <Link
               href={`/idi-studies/${study.id}`}
               title={study.title}
-              className="block font-medium text-blue-600 hover:underline"
+              className="relative z-[1] block font-medium text-blue-600 hover:underline"
+              onClick={(event) => event.stopPropagation()}
             >
               {truncate(study.title, 86)}
             </Link>
@@ -262,6 +263,7 @@ export function StudiesTable({
           columns={columns as unknown as IWuTableColumnDef<unknown>[]}
           variant="striped"
           sort={{ enabled: true }}
+          filterText=""
           NoDataContent={noDataContent}
         />
       </div>

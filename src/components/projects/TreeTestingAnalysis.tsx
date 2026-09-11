@@ -196,7 +196,7 @@ export function TreeTestingAnalysis({ onFilter }: TreeTestingAnalysisProps) {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
-          <Stat label="Success" value={`${analysis.successRate}%`} hint="NN/g: 60–80% is good" />
+          <Stat label="Success" value={`${analysis.successRate}%`} hint="60–80% is a strong result" />
           <Stat label="Directness" value={`${analysis.directness}%`} hint="Reached the correct leaf first" />
           <Stat label="Avg. time" value={`${analysis.avgTimeSeconds}s`} hint="Time to select a destination" />
         </div>

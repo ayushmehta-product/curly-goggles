@@ -13,6 +13,7 @@ import { annotationsForScope, tagsForScope, themesForScope, useAiInsights } from
 import type { AiAnnotation, AiTag, AiTheme, InsightScopeRef } from '@/data/mock-ai-insights';
 import { MOCK_IDI_STUDIES } from '@/data/mock-idi-studies';
 import { MOCK_STUDY_OPERATIONAL_OVERVIEWS } from '@/data/mock-study-overview';
+import { routeId } from '@/data/route-id';
 import {
   MOCK_MODERATED_WORKSPACE_SESSIONS,
   WORKSPACE_RECORDING_STATUS_LABELS,
@@ -569,7 +570,7 @@ function ContextRail({
 }
 
 export default function ModeratedStudySessionsPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = routeId(useParams<{ id: string }>().id);
   const searchParams = useSearchParams();
   const { showToast } = useWuShowToast();
   const study = MOCK_IDI_STUDIES.find((item) => item.id === id);

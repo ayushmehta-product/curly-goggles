@@ -100,7 +100,7 @@ export function CardSortingSetup({ config, onChange }: CardSortingSetupProps) {
       <section>
         <h4 className="mb-1 text-sm font-semibold text-ink">Card sort</h4>
         <p className="mb-3 text-sm text-ink-muted">
-          Participants group labeled cards to show how they expect content to be organized. NN/g recommends 30–50
+          Participants group labeled cards to show how they expect content to be organized. Use 30–50
           cards for a quantitative study.
         </p>
         <WuCard rounded className="bg-surface-sunken p-4 wu-shadow-sm">

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { SelectableCard } from '@/components/ui/SelectableCard';
+import type { UsabilityCreateDraft, UsabilitySurface, WebsiteLinkState, SaasLinkState, FigmaLinkState } from '@/data/usability-create-storage';
 
 const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
@@ -30,33 +30,31 @@ const WuCopyToClipboard = dynamic(
 );
 
 interface LinksStepProps {
+  draft: UsabilityCreateDraft;
+  fetchingPages: boolean;
+  onDraftChange: (patch: Partial<UsabilityCreateDraft>) => void;
+  onVerify: () => void;
   onBack: () => void;
   onSaveDraft: () => void;
   onContinue: () => void;
 }
 
-type SurfaceType = 'website' | 'saas' | 'figma';
-
-interface WebsiteState { url: string; recordingOnly: boolean; verified: boolean; }
-interface SaasState { url: string; environment: string; email: string; verified: boolean; }
-interface FigmaState { connected: boolean; file: string; trackInteractive: boolean; }
-
-const SURFACE_OPTIONS: { value: SurfaceType; title: string; description: string; icon: React.ReactNode }[] = [
+const SURFACE_OPTIONS: { value: UsabilitySurface; title: string; description: string; icon: React.ReactNode }[] = [
   {
     value: 'website',
     title: 'Website',
-    description: 'A live, public or marketing site — no login required',
+    description: 'A live public or marketing site — no login required',
     icon: <span className="wm-language text-xl" />,
   },
   {
     value: 'saas',
-    title: 'SaaS Product',
+    title: 'SaaS product',
     description: 'An authenticated app or dashboard',
     icon: <span className="wm-deployed-code text-xl" />,
   },
   {
     value: 'figma',
-    title: 'Figma Prototype',
+    title: 'Figma prototype',
     description: 'A clickable design file — no snippet required',
     icon: <span className="wm-gesture text-xl" />,
   },
@@ -112,13 +110,17 @@ function InfoCallout({ tone, children }: { tone?: 'info' | 'amber'; children: Re
 function VerifyRow({
   verified,
   disabled,
+  busy,
   label,
+  busyLabel,
   successLabel,
   onVerify,
 }: {
   verified: boolean;
   disabled: boolean;
+  busy: boolean;
   label: string;
+  busyLabel: string;
   successLabel: string;
   onVerify: () => void;
 }) {
@@ -134,17 +136,27 @@ function VerifyRow({
     <WuButton
       variant="secondary"
       size="sm"
-      disabled={disabled}
+      disabled={disabled || busy}
       Icon={<span className="wm-refresh" />}
       onClick={onVerify}
       className="mt-2"
     >
-      {label}
+      {busy ? busyLabel : label}
     </WuButton>
   );
 }
 
-function WebsitePanel({ state, setState }: { state: WebsiteState; setState: (s: WebsiteState) => void }) {
+function WebsitePanel({
+  state,
+  setState,
+  fetchingPages,
+  onVerify,
+}: {
+  state: WebsiteLinkState;
+  setState: (s: WebsiteLinkState) => void;
+  fetchingPages: boolean;
+  onVerify: () => void;
+}) {
   return (
     <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
       <div className="flex items-start gap-3">
@@ -152,9 +164,9 @@ function WebsitePanel({ state, setState }: { state: WebsiteState; setState: (s: 
           <span className="wm-layers text-base" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-900">Install website tracking</p>
+          <p className="text-sm font-semibold text-gray-900">Connect this website</p>
           <p className="mt-0.5 text-xs text-gray-500">
-            Captures clicks, scroll depth, and page paths so heatmaps and flow diagrams are available once the test starts.
+            We list pages from this URL so you can mark where each task starts and what counts as success. Tracking then records the path people actually take.
           </p>
         </div>
       </div>
@@ -180,31 +192,43 @@ function WebsitePanel({ state, setState }: { state: WebsiteState; setState: (s: 
       {!state.recordingOnly && (
         <>
           <SnippetBlock />
-          <p className="text-xs text-gray-500">Paste this before <code>&lt;/head&gt;</code> on every page you want to test.</p>
+          <p className="text-xs text-gray-500">Paste this before <code>&lt;/head&gt;</code> on every page you want to observe.</p>
           <InfoCallout>
-            Single-page apps that don&apos;t change the URL on navigation won&apos;t register separate steps automatically. Use query parameters or hash routes if you need step-level tracking.
+            Single-page apps that don&apos;t change the URL won&apos;t show as separate pages. Use query parameters or hash routes if you need those steps in the catalog.
           </InfoCallout>
         </>
       )}
 
       {state.recordingOnly && (
         <InfoCallout tone="amber">
-          Recording-only mode: no snippet needed. We&apos;ll rely on full screen + audio capture instead of heatmaps or path diagrams.
+          Recording-only: we still list pages from this URL so you can define start and success. Heatmaps and click paths will not be available.
         </InfoCallout>
       )}
 
       <VerifyRow
         verified={state.verified}
         disabled={!state.url}
-        label={state.recordingOnly ? 'Confirm live URL' : 'Verify installation'}
-        successLabel={state.recordingOnly ? `Ready to record ${state.url}` : `Snippet detected on ${state.url}`}
-        onVerify={() => setState({ ...state, verified: true })}
+        busy={fetchingPages}
+        label={state.recordingOnly ? 'Confirm URL and list pages' : 'Verify and list pages'}
+        busyLabel="Listing pages…"
+        successLabel={state.recordingOnly ? `Ready to record ${state.url}` : `Connected ${state.url}`}
+        onVerify={onVerify}
       />
     </div>
   );
 }
 
-function SaasPanel({ state, setState }: { state: SaasState; setState: (s: SaasState) => void }) {
+function SaasPanel({
+  state,
+  setState,
+  fetchingPages,
+  onVerify,
+}: {
+  state: SaasLinkState;
+  setState: (s: SaasLinkState) => void;
+  fetchingPages: boolean;
+  onVerify: () => void;
+}) {
   const envOption = ENV_OPTIONS.find((o) => o.value === state.environment) ?? ENV_OPTIONS[0];
   return (
     <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -213,9 +237,9 @@ function SaasPanel({ state, setState }: { state: SaasState; setState: (s: SaasSt
           <span className="wm-layers text-base" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-900">Install tracking in your product</p>
+          <p className="text-sm font-semibold text-gray-900">Connect this product</p>
           <p className="mt-0.5 text-xs text-gray-500">
-            Same snippet as a website, placed in your authenticated app shell so it loads after login.
+            Same snippet, loaded after login. We list pages from the app URL so you can mark start and success for each task.
           </p>
         </div>
       </div>
@@ -242,7 +266,7 @@ function SaasPanel({ state, setState }: { state: SaasState; setState: (s: SaasSt
       </div>
 
       <SnippetBlock env={state.environment} />
-      <p className="text-xs text-gray-500">Add to your app shell/layout component so it survives client-side routing.</p>
+      <p className="text-xs text-gray-500">Add to your app shell so it survives client-side routing.</p>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <WuInput
@@ -259,24 +283,26 @@ function SaasPanel({ state, setState }: { state: SaasState; setState: (s: SaasSt
           placeholder="••••••••"
         />
       </div>
-      <p className="text-xs text-gray-500">Shared automatically and only with matched testers once the test goes live.</p>
+      <p className="text-xs text-gray-500">Shared only with matched testers once the test is live.</p>
 
       <InfoCallout>
-        Testers need valid credentials to reach instrumented screens — the snippet just needs to load after login.
+        Testers need valid credentials to reach the screens you care about. The snippet only needs to load after login.
       </InfoCallout>
 
       <VerifyRow
         verified={state.verified}
         disabled={!state.url || !state.email}
-        label="Verify installation"
-        successLabel={`Snippet detected on ${state.url} (${state.environment})`}
-        onVerify={() => setState({ ...state, verified: true })}
+        busy={fetchingPages}
+        label="Verify and list pages"
+        busyLabel="Listing pages…"
+        successLabel={`Connected ${state.url} (${state.environment})`}
+        onVerify={onVerify}
       />
     </div>
   );
 }
 
-function FigmaPanel({ state, setState }: { state: FigmaState; setState: (s: FigmaState) => void }) {
+function FigmaPanel({ state, setState }: { state: FigmaLinkState; setState: (s: FigmaLinkState) => void }) {
   const fileOption = FIGMA_FILE_OPTIONS.find((o) => o.value === state.file) ?? null;
 
   return (
@@ -288,7 +314,7 @@ function FigmaPanel({ state, setState }: { state: FigmaState; setState: (s: Figm
         <div>
           <p className="text-sm font-semibold text-gray-900">Connect your Figma prototype</p>
           <p className="mt-0.5 text-xs text-gray-500">
-            Uses Figma&apos;s Embed API to capture clicks and navigation directly from the prototype — no code required.
+            Prototypes don&apos;t expose a live page list. People will mark the task done themselves when they think they have finished.
           </p>
         </div>
       </div>
@@ -358,38 +384,59 @@ function SummaryRow({ label, value, pill }: { label: string; value: string; pill
   );
 }
 
-const SURFACE_LABELS: Record<SurfaceType, string> = {
+const SURFACE_LABELS: Record<UsabilitySurface, string> = {
   website: 'Website',
-  saas: 'SaaS Product',
-  figma: 'Figma Prototype',
+  saas: 'SaaS product',
+  figma: 'Figma prototype',
 };
 
-const RESEARCH_RECS: Record<SurfaceType, string> = {
-  website: 'A live website test will produce click heatmaps, scroll-depth graphs, and a Sankey path diagram once the snippet is verified.',
-  saas: 'Because this is an authenticated flow, pair this test with a moderated Live Conversation to catch friction points automated tracking alone would miss.',
-  figma: 'Prototype tests via the Embed API give you the richest quantitative data of any surface — no snippet reliability issues.',
+const RESEARCH_RECS: Record<UsabilitySurface, string> = {
+  website: 'Write tasks as goals, not clicks. After you list pages, mark an observable success — reaching a page, a section, or a named control.',
+  saas: 'Authenticated flows often hide the success screen behind login. Pair page-based success with a live session so you can see why people divert.',
+  figma: 'Prototype frames are not live pages. Use “Participant marks done” as success, and review the recording to judge whether they actually finished.',
 };
 
-function isTrackingReady(surface: SurfaceType, ws: WebsiteState, ss: SaasState, fs: FigmaState) {
-  if (surface === 'website') return ws.verified || (ws.recordingOnly && !!ws.url);
-  if (surface === 'saas') return ss.verified;
-  if (surface === 'figma') return fs.connected && !!fs.file;
+function isTrackingReady(draft: UsabilityCreateDraft) {
+  if (draft.surface === 'website') return draft.website.verified;
+  if (draft.surface === 'saas') return draft.saas.verified;
+  if (draft.surface === 'figma') return draft.figma.connected && !!draft.figma.file;
   return false;
 }
 
-export function LinksStep({ onBack, onSaveDraft, onContinue }: LinksStepProps) {
-  const [surface, setSurface] = useState<SurfaceType | null>(null);
-  const [website, setWebsite] = useState<WebsiteState>({ url: '', recordingOnly: false, verified: false });
-  const [saas, setSaas] = useState<SaasState>({ url: '', environment: 'Staging', email: '', verified: false });
-  const [figma, setFigma] = useState<FigmaState>({ connected: false, file: '', trackInteractive: true });
-
-  const trackingReady = surface ? isTrackingReady(surface, website, saas, figma) : false;
+export function LinksStep({
+  draft,
+  fetchingPages,
+  onDraftChange,
+  onVerify,
+  onBack,
+  onSaveDraft,
+  onContinue,
+}: LinksStepProps) {
+  const surface = draft.surface;
+  const trackingReady = isTrackingReady(draft);
   const surfaceLabel = surface ? SURFACE_LABELS[surface] : 'Not selected';
   const trackingLabel = trackingReady ? 'Connected' : 'Not connected';
+  const pageCountLabel = draft.pages.length > 0 ? String(draft.pages.length) : 'Not listed yet';
 
   function handleContinue() {
     if (!surface || !trackingReady) return;
     onContinue();
+  }
+
+  function setWebsite(website: WebsiteLinkState) {
+    const urlChanged = website.url !== draft.website.url;
+    onDraftChange({
+      website,
+      ...(urlChanged ? { pages: [], fetchError: null, fetchBlocked: false } : {}),
+    });
+  }
+
+  function setSaas(saas: SaasLinkState) {
+    const urlChanged = saas.url !== draft.saas.url;
+    onDraftChange({
+      saas,
+      ...(urlChanged ? { pages: [], fetchError: null, fetchBlocked: false } : {}),
+    });
   }
 
   return (
@@ -398,7 +445,7 @@ export function LinksStep({ onBack, onSaveDraft, onContinue }: LinksStepProps) {
         <div className="border-b border-gray-100 px-5 py-3">
           <h2 className="text-base font-semibold text-gray-900">Links</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Choose the testing surface, then connect tracking so Behavior Analytics captures data automatically.
+            Choose what you are testing. We use this URL to list pages for start and success, then to record the path people take.
           </p>
         </div>
 
@@ -413,25 +460,35 @@ export function LinksStep({ onBack, onSaveDraft, onContinue }: LinksStepProps) {
                   description={opt.description}
                   icon={opt.icon}
                   isSelected={surface === opt.value}
-                  onClick={() => setSurface(opt.value)}
+                  onClick={() => onDraftChange({ surface: opt.value })}
                 />
               ))}
             </div>
           </div>
 
           {surface === 'website' && (
-            <WebsitePanel state={website} setState={setWebsite} />
+            <WebsitePanel
+              state={draft.website}
+              setState={setWebsite}
+              fetchingPages={fetchingPages}
+              onVerify={onVerify}
+            />
           )}
           {surface === 'saas' && (
-            <SaasPanel state={saas} setState={setSaas} />
+            <SaasPanel
+              state={draft.saas}
+              setState={setSaas}
+              fetchingPages={fetchingPages}
+              onVerify={onVerify}
+            />
           )}
           {surface === 'figma' && (
-            <FigmaPanel state={figma} setState={setFigma} />
+            <FigmaPanel state={draft.figma} setState={(figma) => onDraftChange({ figma })} />
           )}
 
           {!surface && (
             <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-400">
-              Select a testing surface above to see tracking setup options.
+              Select a testing surface above to see setup options.
             </div>
           )}
         </div>
@@ -439,7 +496,7 @@ export function LinksStep({ onBack, onSaveDraft, onContinue }: LinksStepProps) {
         <div className="sticky bottom-0 z-20 flex items-center justify-between border-t border-gray-100 bg-white px-5 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.06)]">
           <WuButton variant="secondary" onClick={onBack}>Back</WuButton>
           <div className="flex items-center gap-2">
-            <WuButton variant="secondary" onClick={onSaveDraft}>Save Draft</WuButton>
+            <WuButton variant="secondary" onClick={onSaveDraft}>Save draft</WuButton>
             <WuButton
               Icon={<span className="wm-arrow-forward" />}
               iconPosition="right"
@@ -454,33 +511,33 @@ export function LinksStep({ onBack, onSaveDraft, onContinue }: LinksStepProps) {
 
       <aside className="space-y-4">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-900">Test Summary</h3>
+          <h3 className="text-sm font-semibold text-gray-900">Test summary</h3>
           <div className="mt-3">
             <SummaryRow label="Testing surface" value={surfaceLabel} />
-            <SummaryRow label="Tracking status" value={trackingLabel} pill={trackingReady ? 'green' : 'gray'} />
+            <SummaryRow label="Connection" value={trackingLabel} pill={trackingReady ? 'green' : 'gray'} />
+            <SummaryRow label="Pages listed" value={pageCountLabel} />
             <SummaryRow label="Target participants" value="12" />
-            <SummaryRow label="Task duration" value="20 mins" />
           </div>
         </div>
 
         {surface && (
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
             <p className="flex items-center gap-1.5 text-sm font-semibold text-blue-900">
-              <span className="wm-auto-awesome text-sm text-blue-600" /> Research Recommendation
+              <span className="wm-auto-awesome text-sm text-blue-600" /> How this is used
             </p>
             <p className="mt-2 text-xs leading-5 text-blue-800">{RESEARCH_RECS[surface]}</p>
           </div>
         )}
 
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-900">What tracking gives you</h3>
+          <h3 className="text-sm font-semibold text-gray-900">What you will see in analyze</h3>
           <ul className="mt-3 space-y-2">
             {[
-              { icon: 'wm-mouse', label: 'Click heatmaps' },
-              { icon: 'wm-swap-vert', label: 'Scroll depth charts' },
-              { icon: 'wm-play-circle', label: 'Session replays' },
-              { icon: 'wm-account-tree', label: 'Click path flow' },
-              { icon: 'wm-warning', label: 'Rage & misclick detection' },
+              { icon: 'wm-flag', label: 'Who reached the success you set' },
+              { icon: 'wm-account-tree', label: 'Paths from start toward success' },
+              { icon: 'wm-mouse', label: 'Clicks on start and success pages' },
+              { icon: 'wm-swap-vert', label: 'Whether people reached a success section' },
+              { icon: 'wm-play-circle', label: 'Replays to review leftover sessions' },
             ].map(({ icon, label }) => (
               <li key={label} className="flex items-center gap-2 text-xs text-gray-600">
                 <span className={`${icon} text-sm text-gray-400`} />

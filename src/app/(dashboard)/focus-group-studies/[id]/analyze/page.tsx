@@ -9,6 +9,7 @@ import { FocusGroupWorkspaceTabs } from '@/components/focus-group-studies/FocusG
 import { annotationsForScope, tagsForScope, themesForScope, useAiInsights } from '@/components/insights-chat/ai-insights-store';
 import { MOCK_FOCUS_GROUPS } from '@/data/mock-focus-groups';
 import { MOCK_FOCUS_GROUP_SESSION_ANALYSIS } from '@/data/mock-focus-group-session-analysis';
+import { routeId } from '@/data/route-id';
 
 const WuChip = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuChip })),
@@ -28,7 +29,7 @@ function AiSourceBadge() {
 }
 
 export default function FocusGroupAnalyzePage() {
-  const { id } = useParams<{ id: string }>();
+  const id = routeId(useParams<{ id: string }>().id);
 
   const focusGroup = MOCK_FOCUS_GROUPS.find((item) => item.id === id);
   const analysis =

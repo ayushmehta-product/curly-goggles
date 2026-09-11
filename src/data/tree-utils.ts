@@ -195,7 +195,7 @@ export function countNodes(nodes: TreeNode[]): number {
   return nodes.reduce((sum, node) => sum + 1 + countNodes(node.children), 0);
 }
 
-export function parseNngCsv(csv: string): TreeNode[] {
+export function parseTreeCsv(csv: string): TreeNode[] {
   const rows = csv
     .split(/\r?\n/)
     .map((line) => parseCsvRow(line))

@@ -7,6 +7,7 @@ import type { IWuTabItem } from '@npm-questionpro/wick-ui-lib';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { WuTabPlaceholder } from '@/components/ui/WuTabPlaceholder';
 import { CreateStudyModeModal } from '@/components/idi-studies/CreateStudyModeModal';
 import { DeleteStudyModal } from '@/components/idi-studies/DeleteStudyModal';
 import { StudiesTable } from '@/components/idi-studies/StudiesTable';
@@ -272,14 +273,46 @@ export default function IdiStudiesPage() {
       tab.value === 'all'
         ? studies.length
         : studies.filter((study) => study.status === tab.value).length;
+    const visibleStudies = getFilteredStudies(tab.value);
 
     return {
       value: tab.value,
       Trigger: `${tab.label} (${count})`,
-      Content: <span className="sr-only">{tab.label} studies selected</span>,
+      Content: tab.value !== activeTab ? (
+        <WuTabPlaceholder label={tab.label} />
+      ) : (
+        <div className="relative z-[1] pt-4">
+          <StudyFilters
+            filters={filters}
+            ownerOptions={ownerOptions}
+            onChange={setFilters}
+          />
+          <div className="mb-3 flex items-center justify-between text-xs text-gray-500">
+            <span>
+              Showing {isLoading ? '...' : visibleStudies.length} of {studies.length} studies
+            </span>
+            {hasActiveFilters(filters) && (
+              <button
+                type="button"
+                className="font-medium text-blue-600 hover:underline"
+                onClick={() => setFilters(DEFAULT_FILTERS)}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+          <StudiesTable
+            studies={visibleStudies}
+            isLoading={isLoading}
+            noDataContent={renderNoDataContent(tab.value)}
+            onDuplicate={handleDuplicate}
+            onArchive={handleArchive}
+            onDelete={setDeleteTarget}
+          />
+        </div>
+      ),
     };
   });
-  const visibleStudies = getFilteredStudies(activeTab);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -296,39 +329,9 @@ export default function IdiStudiesPage() {
       <StudyStats stats={stats} />
       <WuTab
         items={tabItems}
-        defaultValue="all"
+        value={activeTab}
         onValueChange={(value) => setActiveTab(value as TabValue)}
       />
-
-      <div className="pt-4">
-        <StudyFilters
-          filters={filters}
-          ownerOptions={ownerOptions}
-          onChange={setFilters}
-        />
-        <div className="mb-3 flex items-center justify-between text-xs text-gray-500">
-          <span>
-            Showing {isLoading ? '...' : visibleStudies.length} of {studies.length} studies
-          </span>
-          {hasActiveFilters(filters) && (
-            <button
-              type="button"
-              className="font-medium text-blue-600 hover:underline"
-              onClick={() => setFilters(DEFAULT_FILTERS)}
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-        <StudiesTable
-          studies={visibleStudies}
-          isLoading={isLoading}
-          noDataContent={renderNoDataContent(activeTab)}
-          onDuplicate={handleDuplicate}
-          onArchive={handleArchive}
-          onDelete={setDeleteTarget}
-        />
-      </div>
 
       <DeleteStudyModal
         study={deleteTarget}

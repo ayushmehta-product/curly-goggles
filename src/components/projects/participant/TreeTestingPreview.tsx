@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { EmptyState } from '@/components/ui/EmptyState';
-import type { FindabilityTask, TreeTestingConfig } from '@/data/mock-tree-testing';
+import type { FindabilityChoice, FindabilityTask, TreeTestingConfig } from '@/data/mock-tree-testing';
 import { findNode, type TreeNode } from '@/data/tree-utils';
 
 const WuButton = dynamic(
@@ -60,6 +60,21 @@ function startingNodeId(tree: TreeNode[]): string | null {
   return null;
 }
 
+function shuffle<T>(items: T[]): T[] {
+  const next = [...items];
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const current = next[i];
+    next[i] = next[j];
+    next[j] = current;
+  }
+  return next;
+}
+
+function labeledChoices(task: FindabilityTask): FindabilityChoice[] {
+  return (task.choices ?? []).filter((choice) => choice.label.trim());
+}
+
 function isLeaf(node: TreeNode): boolean {
   return node.children.length === 0;
 }
@@ -75,16 +90,33 @@ export function TreeTestingPreview({ title, config, backHref }: TreeTestingPrevi
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [ease, setEase] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<string | null>(null);
+  const [choiceAnswer, setChoiceAnswer] = useState<string | null>(null);
+  const [choiceOrder, setChoiceOrder] = useState<FindabilityChoice[]>([]);
   const [done, setDone] = useState(false);
 
   const task = tasks[taskIndex];
+  const customChoices = labeledChoices(task);
   const current = currentId ? findNode(tree, currentId) : null;
   const children = current ? current.children : tree;
   const trail = currentId ? (findPath(tree, currentId) ?? []) : [];
   const canGoBack = trail.length > 1 || (trail.length === 1 && startId === null);
   const selectedIsLeaf = Boolean(selectedId && findNode(tree, selectedId) && isLeaf(findNode(tree, selectedId)!));
-  const canSubmit = selectedIsLeaf && ease !== null && confidence !== null;
+  const usabilityDone =
+    task.required === false
+      ? true
+      : customChoices.length > 0
+        ? choiceAnswer !== null
+        : ease !== null && confidence !== null;
+  const canSubmit = selectedIsLeaf && usabilityDone;
   const isLastTask = taskIndex >= tasks.length - 1;
+
+  useEffect(() => {
+    const next = labeledChoices(task);
+    setChoiceOrder(task.randomize ? shuffle(next) : next);
+    setChoiceAnswer(null);
+    setEase(null);
+    setConfidence(null);
+  }, [task.id]);
 
   function resetLocation() {
     setCurrentId(startId);
@@ -95,6 +127,7 @@ export function TreeTestingPreview({ title, config, backHref }: TreeTestingPrevi
     resetLocation();
     setEase(null);
     setConfidence(null);
+    setChoiceAnswer(null);
   }
 
   function goBack() {
@@ -151,7 +184,7 @@ export function TreeTestingPreview({ title, config, backHref }: TreeTestingPrevi
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
       <div>
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <p className="text-sm text-ink-muted">
@@ -199,9 +232,9 @@ export function TreeTestingPreview({ title, config, backHref }: TreeTestingPrevi
           ) : null}
         </div>
 
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-4">
           {children.length === 0 ? (
-            <li className="rounded-lg border border-line bg-[var(--qp-gray-20)] px-4 py-6 text-sm text-ink-muted">
+            <li className="rounded-lg border border-line bg-[var(--qp-gray-20)] px-6 py-8 text-base text-ink-muted">
               No more pages under this topic. Go back and choose a last page.
             </li>
           ) : (
@@ -211,7 +244,7 @@ export function TreeTestingPreview({ title, config, backHref }: TreeTestingPrevi
                 return (
                   <li key={node.id}>
                     <label
-                      className={`flex cursor-pointer items-center gap-3 rounded-lg px-5 py-4 qp-card-depth ${
+                      className={`flex min-h-[4.5rem] cursor-pointer items-center gap-4 rounded-lg px-6 py-5 qp-card-depth ${
                         selected
                           ? 'border-accent bg-[var(--qp-title-line)] ring-1 ring-accent'
                           : 'hover:bg-[var(--qp-gray-20)]'
@@ -223,9 +256,9 @@ export function TreeTestingPreview({ title, config, backHref }: TreeTestingPrevi
                         value={node.id}
                         checked={selected}
                         onChange={() => setSelectedId(node.id)}
-                        className="h-5 w-5 shrink-0 accent-[var(--qp-p-blue)]"
+                        className="h-6 w-6 shrink-0 accent-[var(--qp-p-blue)]"
                       />
-                      <span className="text-base font-medium text-ink">{node.label}</span>
+                      <span className="text-lg font-medium leading-normal text-ink">{node.label}</span>
                     </label>
                   </li>
                 );
@@ -237,10 +270,10 @@ export function TreeTestingPreview({ title, config, backHref }: TreeTestingPrevi
                     type="button"
                     aria-label={`${node.label}, next`}
                     onClick={() => onOpenBranch(node)}
-                    className="flex w-full items-center justify-between gap-3 rounded-lg px-5 py-4 text-left qp-card-depth hover:bg-[var(--qp-gray-20)]"
+                    className="flex min-h-[4.5rem] w-full items-center justify-between gap-4 rounded-lg px-6 py-5 text-left qp-card-depth hover:bg-[var(--qp-gray-20)]"
                   >
-                    <span className="text-base font-medium text-ink">{node.label}</span>
-                    <span className="wm-chevron-right text-xl text-accent" aria-hidden />
+                    <span className="text-lg font-medium leading-normal text-ink">{node.label}</span>
+                    <span className="wm-chevron-right shrink-0 text-3xl text-accent" aria-hidden />
                   </button>
                 </li>
               );
@@ -252,28 +285,48 @@ export function TreeTestingPreview({ title, config, backHref }: TreeTestingPrevi
         </p>
       </section>
 
-      <section className="flex flex-col gap-6 rounded-lg border border-line bg-[var(--qp-gray-20)] p-4">
-        <h3 className="text-base font-semibold text-ink">Task usability</h3>
-        <ChoiceScale
-          legend="How easy was this task?"
-          name={`ease-${task.id}`}
-          value={ease}
-          options={EASE_OPTIONS}
-          onChange={setEase}
-        />
-        <ChoiceScale
-          legend="How confident are you that you found the right place?"
-          name={`confidence-${task.id}`}
-          value={confidence}
-          options={CONFIDENCE_OPTIONS}
-          onChange={setConfidence}
-        />
+      <section className="flex flex-col gap-8 rounded-lg border border-line bg-surface p-6">
+        <h3 className="text-lg font-semibold text-ink">Task usability</h3>
+        {choiceOrder.length > 0 ? (
+          <ChoiceScale
+            legend="How easy was this task?"
+            name={`choice-${task.id}`}
+            value={choiceAnswer}
+            options={choiceOrder.map((choice) => ({ value: choice.id, label: choice.label }))}
+            onChange={setChoiceAnswer}
+          />
+        ) : (
+          <>
+            <ChoiceScale
+              legend="How easy was this task?"
+              name={`ease-${task.id}`}
+              value={ease}
+              options={EASE_OPTIONS}
+              onChange={setEase}
+            />
+            <ChoiceScale
+              legend="How confident are you that you found the right place?"
+              name={`confidence-${task.id}`}
+              value={confidence}
+              options={CONFIDENCE_OPTIONS}
+              onChange={setConfidence}
+            />
+          </>
+        )}
       </section>
 
       <div className="flex flex-col items-end gap-2">
         {!canSubmit ? (
           <p className="text-sm text-ink-muted">
-            Select a last page and answer both usability questions to submit.
+            {selectedIsLeaf
+              ? customChoices.length > 0
+                ? 'Answer the usability question to submit.'
+                : 'Answer both usability questions to submit.'
+              : task.required === false
+                ? 'Select a last page to submit.'
+                : customChoices.length > 0
+                  ? 'Select a last page and answer the usability question to submit.'
+                  : 'Select a last page and answer both usability questions to submit.'}
           </p>
         ) : null}
         <WuButton disabled={!canSubmit} onClick={submitTask}>
@@ -299,26 +352,21 @@ function ChoiceScale({
 }) {
   return (
     <fieldset>
-      <legend className="mb-2 text-sm font-medium text-ink">{legend}</legend>
-      <div className="grid gap-2 sm:grid-cols-5">
+      <legend className="mb-3 text-base font-medium text-ink">{legend}</legend>
+      <div className="flex flex-col gap-4">
         {options.map((option) => {
           const selected = value === option.value;
           return (
-            <label
-              key={option.value}
-              className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border bg-surface px-3 py-3 text-center ${
-                selected ? 'border-accent bg-[var(--qp-title-line)] ring-1 ring-accent' : 'border-line hover:bg-white'
-              }`}
-            >
+            <label key={option.value} className="flex cursor-pointer items-center gap-2">
               <input
                 type="radio"
                 name={name}
                 value={option.value}
                 checked={selected}
                 onChange={() => onChange(option.value)}
-                className="h-4 w-4 accent-[var(--qp-p-blue)]"
+                className="h-5 w-5 shrink-0 accent-[var(--qp-p-blue)]"
               />
-              <span className="text-xs text-ink">{option.label}</span>
+              <span className="text-base text-ink">{option.label}</span>
             </label>
           );
         })}

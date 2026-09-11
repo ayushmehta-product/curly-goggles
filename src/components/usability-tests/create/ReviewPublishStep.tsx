@@ -1,6 +1,11 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import {
+  isTaskConfigured,
+  taskSuccessSummary,
+  type UsabilityCreateDraft,
+} from '@/data/usability-create-storage';
 
 const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
@@ -8,67 +13,13 @@ const WuButton = dynamic(
 );
 
 interface ReviewPublishStepProps {
+  draft: UsabilityCreateDraft;
   onBack: () => void;
   onSaveDraft: () => void;
   onPublish: () => void;
 }
 
 type ReadinessState = 'success' | 'warning';
-
-const readinessItems: Array<{ label: string; description: string; state: ReadinessState }> = [
-  {
-    label: 'Testing surface configured',
-    description: 'A surface has been selected and tracking is connected.',
-    state: 'success',
-  },
-  {
-    label: 'Moderator assigned',
-    description: '2 moderators are available for live interviews.',
-    state: 'success',
-  },
-  {
-    label: 'Scheduling availability configured',
-    description: '5 weekdays are open for participant booking.',
-    state: 'success',
-  },
-  {
-    label: 'Task script completed',
-    description: '3 tasks are defined with success criteria.',
-    state: 'success',
-  },
-  {
-    label: 'Observer passcode disabled',
-    description: 'Observers can join approved sessions without an additional passcode.',
-    state: 'warning',
-  },
-];
-
-const configGroups = [
-  {
-    title: 'Study Setup',
-    items: ['20-minute task sessions', 'Target: 12 participants'],
-  },
-  {
-    title: 'Links',
-    items: ['Website tracking', 'Snippet verified'],
-  },
-  {
-    title: 'Team',
-    items: ['2 moderators assigned', '3 observers added'],
-  },
-  {
-    title: 'Scheduling',
-    items: ['Weekday availability configured', '24 available booking sessions'],
-  },
-  {
-    title: 'Discussion Guide',
-    items: ['3 tasks defined', 'Success criteria set'],
-  },
-  {
-    title: 'Post-Session',
-    items: ['Thank-you message configured', 'Post-session survey enabled'],
-  },
-];
 
 function SectionShell({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -93,31 +44,113 @@ function ReadinessIcon({ state }: { state: ReadinessState }) {
   );
 }
 
-export function ReviewPublishStep({ onBack, onSaveDraft, onPublish }: ReviewPublishStepProps) {
+const SURFACE_LABELS = {
+  website: 'Website',
+  saas: 'SaaS product',
+  figma: 'Figma prototype',
+} as const;
+
+export function ReviewPublishStep({ draft, onBack, onSaveDraft, onPublish }: ReviewPublishStepProps) {
+  const hasPages = draft.pages.length > 0;
+  const configuredTasks = draft.tasks.filter((task) => isTaskConfigured(task, hasPages));
+  const tasksReady = configuredTasks.length === draft.tasks.length && draft.tasks.length > 0;
+  const surfaceLabel = draft.surface ? SURFACE_LABELS[draft.surface] : 'Not selected';
+  const linksReady = draft.surface === 'figma'
+    ? draft.figma.connected && !!draft.figma.file
+    : draft.surface === 'saas'
+      ? draft.saas.verified
+      : draft.website.verified;
+  const pageNote = draft.surface === 'figma'
+    ? 'Prototype — people mark each task done'
+    : hasPages
+      ? `${draft.pages.length} page${draft.pages.length === 1 ? '' : 's'} listed`
+      : 'No pages listed — add URLs or use “Participant marks done”';
+
+  const readinessItems: Array<{ label: string; description: string; state: ReadinessState }> = [
+    {
+      label: 'Testing surface connected',
+      description: linksReady
+        ? `${surfaceLabel} is connected${draft.website.recordingOnly && draft.surface === 'website' ? ' (recording only)' : ''}.`
+        : 'Connect a website, product, or prototype on Links.',
+      state: linksReady ? 'success' : 'warning',
+    },
+    {
+      label: 'Moderator assigned',
+      description: '2 moderators are available for live interviews.',
+      state: 'success',
+    },
+    {
+      label: 'Scheduling availability configured',
+      description: '5 weekdays are open for participant booking.',
+      state: 'success',
+    },
+    {
+      label: 'Observable success set',
+      description: tasksReady
+        ? `${configuredTasks.length} of ${draft.tasks.length} ${draft.tasks.length === 1 ? 'task has' : 'tasks have'} a start and a success.`
+        : `${configuredTasks.length} of ${draft.tasks.length} ${draft.tasks.length === 1 ? 'task has' : 'tasks have'} a start and a success.`,
+      state: tasksReady ? 'success' : 'warning',
+    },
+    {
+      label: 'Observer passcode disabled',
+      description: 'Observers can join approved sessions without an additional passcode.',
+      state: 'warning',
+    },
+  ];
+
+  const configGroups = [
+    {
+      title: 'Study setup',
+      items: ['20-minute sessions', 'Target: 12 participants'],
+    },
+    {
+      title: 'Links',
+      items: [surfaceLabel, pageNote],
+    },
+    {
+      title: 'Team',
+      items: ['2 moderators assigned', '3 observers added'],
+    },
+    {
+      title: 'Scheduling',
+      items: ['Weekday availability configured', '24 available booking sessions'],
+    },
+    {
+      title: 'Discussion guide',
+      items: draft.tasks.map((task, index) => `Task ${index + 1}: ${taskSuccessSummary(task, draft.pages)}`),
+    },
+    {
+      title: 'Post-session',
+      items: ['Thank-you message configured', 'Post-session survey enabled'],
+    },
+  ];
+
+  const readyToLaunch = linksReady && tasksReady;
+
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-5">
-        <SectionShell title="Test Overview">
+        <SectionShell title="Test overview">
           <div className="grid gap-3 md:grid-cols-3">
             <div>
               <p className="text-xs font-medium text-gray-500">Test name</p>
               <p className="mt-1 text-sm font-semibold text-gray-900">Greater Midland Community Onboarding Flow</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500">Task duration</p>
+              <p className="text-xs font-medium text-gray-500">Session length</p>
               <p className="mt-1 text-sm font-semibold text-gray-900">20 mins</p>
             </div>
             <div>
               <p className="text-xs font-medium text-gray-500">Testing surface</p>
-              <p className="mt-1 text-sm font-semibold text-gray-900">Figma Prototype</p>
+              <p className="mt-1 text-sm font-semibold text-gray-900">{surfaceLabel}</p>
             </div>
           </div>
           <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-            <span className="wm-touch-app text-sm" /> Usability Test
+            <span className="wm-touch-app text-sm" /> Usability test
           </span>
         </SectionShell>
 
-        <SectionShell title="Operational Readiness Checklist" description="Key launch checks before going live.">
+        <SectionShell title="Launch checklist" description="Confirm start and success are set before you collect sessions.">
           <div className="divide-y divide-gray-100">
             {readinessItems.map((item) => (
               <div key={item.label} className="flex gap-3 py-3 first:pt-0 last:pb-0">
@@ -131,15 +164,15 @@ export function ReviewPublishStep({ onBack, onSaveDraft, onPublish }: ReviewPubl
           </div>
         </SectionShell>
 
-        <SectionShell title="Configuration Summary">
+        <SectionShell title="Configuration summary">
           <div className="grid gap-4 md:grid-cols-3">
             {configGroups.map((group) => (
               <div key={group.title} className="rounded-md bg-gray-50 p-4">
                 <p className="text-sm font-semibold text-gray-900">{group.title}</p>
                 <ul className="mt-2 space-y-1">
                   {group.items.map((item) => (
-                    <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
-                      <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+                    <li key={item} className="flex items-start gap-2 text-sm text-gray-600">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-300" />
                       {item}
                     </li>
                   ))}
@@ -151,15 +184,21 @@ export function ReviewPublishStep({ onBack, onSaveDraft, onPublish }: ReviewPubl
       </div>
 
       <aside className="space-y-5 xl:sticky xl:top-4 xl:self-start">
-        <SectionShell title="Launch Readiness">
-          <div className="rounded-lg bg-green-50 p-4">
+        <SectionShell title="Launch readiness">
+          <div className={`rounded-lg p-4 ${readyToLaunch ? 'bg-green-50' : 'bg-amber-50'}`}>
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-600 text-white">
-                <span className="wm-check text-sm" />
+              <span className={`flex h-7 w-7 items-center justify-center rounded-full text-white ${readyToLaunch ? 'bg-green-600' : 'bg-amber-500'}`}>
+                <span className={readyToLaunch ? 'wm-check text-sm' : 'wm-warning text-sm'} />
               </span>
               <div>
-                <p className="text-sm font-semibold text-green-900">Ready to launch</p>
-                <p className="text-xs text-green-700">Tracking and scheduling are configured.</p>
+                <p className={`text-sm font-semibold ${readyToLaunch ? 'text-green-900' : 'text-amber-900'}`}>
+                  {readyToLaunch ? 'Ready to launch' : 'Finish start and success'}
+                </p>
+                <p className={`text-xs ${readyToLaunch ? 'text-green-700' : 'text-amber-800'}`}>
+                  {readyToLaunch
+                    ? 'Each task has an observable success. Analyze will score against that end state.'
+                    : 'Set start and success on the discussion guide so results have a clear pass/fail.'}
+                </p>
               </div>
             </div>
           </div>
@@ -167,7 +206,8 @@ export function ReviewPublishStep({ onBack, onSaveDraft, onPublish }: ReviewPubl
             {[
               { label: 'Moderators available', value: '2' },
               { label: 'Booking sessions', value: '24' },
-              { label: 'Behaviour tracking', value: 'Active' },
+              { label: 'Pages listed', value: draft.surface === 'figma' ? 'Prototype' : String(draft.pages.length) },
+              { label: 'Tasks with success', value: `${configuredTasks.length}/${draft.tasks.length}` },
             ].map((stat) => (
               <div key={stat.label} className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0">
                 <span className="text-sm text-gray-500">{stat.label}</span>
@@ -177,9 +217,9 @@ export function ReviewPublishStep({ onBack, onSaveDraft, onPublish }: ReviewPubl
           </div>
         </SectionShell>
 
-        <SectionShell title="Analytics Preview">
+        <SectionShell title="What analyze will show">
           <p className="text-xs leading-5 text-gray-600">
-            Once the study goes live and participants start sessions, the Behavior Analytics tab will show heatmaps, scroll depth, session replays, click paths, and rage-click reports automatically.
+            After sessions start, Behavior analytics reports who reached the success you set, who recovered after a diversion, and who left before that end state. Heatmaps, scroll, and replays help explain the path — they are not the success score.
           </p>
         </SectionShell>
       </aside>
@@ -187,9 +227,9 @@ export function ReviewPublishStep({ onBack, onSaveDraft, onPublish }: ReviewPubl
       <div className="sticky bottom-0 z-20 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-5 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.06)] xl:col-span-2">
         <WuButton variant="secondary" onClick={onBack}>Back</WuButton>
         <div className="flex items-center gap-2">
-          <WuButton variant="secondary" onClick={onSaveDraft}>Save Draft</WuButton>
+          <WuButton variant="secondary" onClick={onSaveDraft}>Save draft</WuButton>
           <WuButton Icon={<span className="wm-rocket" />} iconPosition="right" onClick={onPublish}>
-            Launch Test
+            Launch test
           </WuButton>
         </div>
       </div>

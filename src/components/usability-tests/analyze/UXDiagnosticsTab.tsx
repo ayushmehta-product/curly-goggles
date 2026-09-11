@@ -4,6 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { IWuTabItem } from '@npm-questionpro/wick-ui-lib';
 import { RadialRing, SectionShell } from './charts';
+import { WuTabPlaceholder } from '@/components/ui/WuTabPlaceholder';
 import type { UsabilityAnalytics } from '@/data/mock-usability-analytics';
 
 const WuTab = dynamic(
@@ -16,10 +17,10 @@ type DiagSubTab = 'sus' | 'nps' | 'task-usability' | 'task-completion' | 'task-d
 const DIAG_TABS: { value: DiagSubTab; label: string }[] = [
   { value: 'sus', label: 'SUS' },
   { value: 'nps', label: 'NPS' },
-  { value: 'task-usability', label: 'Task Usability' },
-  { value: 'task-completion', label: 'Task Completion' },
-  { value: 'task-duration', label: 'Task Duration' },
-  { value: 'emotions', label: 'Emotions' },
+  { value: 'task-usability', label: 'Task ease' },
+  { value: 'task-completion', label: 'Reached success' },
+  { value: 'task-duration', label: 'Time to success' },
+  { value: 'emotions', label: 'How it felt' },
 ];
 
 function SUSPanel({ data }: { data: UsabilityAnalytics }) {
@@ -135,7 +136,7 @@ function EmotionsPanel({ data }: { data: UsabilityAnalytics }) {
         ))}
       </div>
       <p className="text-xs text-gray-500">
-        Emotion data is inferred from response tone in post-session surveys. Ranges are indicative and should be combined with qualitative findings.
+        Emotion labels are inferred from post-session comments. Treat them as satisfaction clues, and pair them with whether people reached the success page.
       </p>
     </div>
   );
@@ -145,60 +146,60 @@ export function UXDiagnosticsTab({ data }: { data: UsabilityAnalytics }) {
   const [subTab, setSubTab] = useState<DiagSubTab>('sus');
   const d = data.diagnostics;
 
+  const panel = (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      {subTab === 'sus' && <SUSPanel data={data} />}
+      {subTab === 'nps' && (
+        <SimpleStatPanel
+          value={d.nps}
+          label="Net promoter score"
+          description="Willingness to recommend the experience after trying the task."
+          interpretation={`A score of ${d.nps} is a satisfaction signal, not a success score. Pair it with whether people reached the success page.`}
+          icon="wm-thumb-up"
+        />
+      )}
+      {subTab === 'task-usability' && (
+        <SimpleStatPanel
+          value={d.taskUsabilityRating}
+          label="How easy the task felt"
+          description="Average self-reported ease after the session (1–5). This is satisfaction, not whether they reached success."
+          interpretation="People rated the tasks as moderately easy. Pair this with who finished every task — ease scores can stay high even when some people never finish."
+          icon="wm-star"
+        />
+      )}
+      {subTab === 'task-completion' && (
+        <SimpleStatPanel
+          value={d.taskCompletionRate}
+          label="Reached success"
+          description="People who finished every task in this test. This is effectiveness across the test, not a single task."
+          interpretation="16 of 24 finished all three tasks. 8 left at least one. Open Behavior analytics and switch to a task to see where they left."
+          icon="wm-check-circle"
+        />
+      )}
+      {subTab === 'task-duration' && (
+        <SimpleStatPanel
+          value={d.taskDurationMedian}
+          label="Time to success"
+          description="Median time among people who finished the session. This is efficiency for completers, not for everyone."
+          interpretation="People who finished typically took about 8 minutes across all tasks. Open a single task in Behavior analytics to see time on that task."
+          icon="wm-timer"
+        />
+      )}
+      {subTab === 'emotions' && <EmotionsPanel data={data} />}
+    </div>
+  );
+
   const subTabItems: IWuTabItem[] = DIAG_TABS.map((tab) => ({
     value: tab.value,
     Trigger: tab.label,
-    Content: <span className="sr-only">{tab.label} selected</span>,
+    Content: tab.value === subTab ? <div className="pt-4">{panel}</div> : <WuTabPlaceholder label={tab.label} />,
   }));
 
   return (
-    <div className="space-y-4">
-      <WuTab
-        items={subTabItems}
-        value={subTab}
-        onValueChange={(v) => setSubTab(v as DiagSubTab)}
-      />
-
-      <div className="rounded-xl border border-gray-200 bg-white p-5">
-        {subTab === 'sus' && <SUSPanel data={data} />}
-        {subTab === 'nps' && (
-          <SimpleStatPanel
-            value={d.nps}
-            label="Net Promoter Score"
-            description="NPS measures participant willingness to recommend the tested experience."
-            interpretation={`A score of ${d.nps} is considered ${d.nps >= 50 ? 'excellent' : d.nps >= 30 ? 'good' : d.nps >= 0 ? 'acceptable' : 'needs improvement'}. Detractors in post-session comments cited confusion in the checkout area.`}
-            icon="wm-thumb-up"
-          />
-        )}
-        {subTab === 'task-usability' && (
-          <SimpleStatPanel
-            value={d.taskUsabilityRating}
-            label="Task Usability Rating"
-            description="Average self-reported ease of completing the task (1–5 Likert scale)."
-            interpretation="Participants found the task moderately easy. Scores below 4 suggest the task flow needs simplification; focus on the Checkout screen where rage clicks are highest."
-            icon="wm-star"
-          />
-        )}
-        {subTab === 'task-completion' && (
-          <SimpleStatPanel
-            value={d.taskCompletionRate}
-            label="Task Completion Rate"
-            description="Percentage of participants who fully completed the assigned task."
-            interpretation={`${d.taskCompletionRate} of participants reached the success state. Incomplete sessions most commonly dropped off at the Checkout screen — investigate in Click Paths.`}
-            icon="wm-check-circle"
-          />
-        )}
-        {subTab === 'task-duration' && (
-          <SimpleStatPanel
-            value={d.taskDurationMedian}
-            label="Median Task Duration"
-            description="Median time for participants who completed the task."
-            interpretation="The median completion time suggests the flow is roughly meeting the 3-minute target. Outlier sessions over 4 minutes typically encountered rage clicks on the Checkout screen."
-            icon="wm-timer"
-          />
-        )}
-        {subTab === 'emotions' && <EmotionsPanel data={data} />}
-      </div>
-    </div>
+    <WuTab
+      items={subTabItems}
+      value={subTab}
+      onValueChange={(v) => setSubTab(v as DiagSubTab)}
+    />
   );
 }

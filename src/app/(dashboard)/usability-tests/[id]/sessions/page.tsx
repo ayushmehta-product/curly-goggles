@@ -13,6 +13,7 @@ import {
   type TestStatus,
 } from '@/data/mock-usability-tests';
 import { formatDate } from '@/data/mock-utils';
+import { routeId } from '@/data/route-id';
 
 const WuTable = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTable })),
@@ -82,7 +83,7 @@ function StatusBadge({ status }: { status: TestStatus }) {
 }
 
 export default function UsabilityTestSessionsPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = routeId(useParams<{ id: string }>().id);
   const router = useRouter();
   const { showToast } = useWuShowToast();
   const test = MOCK_USABILITY_TESTS.find((t) => t.id === id);
@@ -211,14 +212,14 @@ export default function UsabilityTestSessionsPage() {
         <h1 className="text-2xl font-semibold text-gray-950">{test.title}</h1>
         <div className="flex items-center gap-2">
           <StatusBadge status={test.status} />
-          <WuButton variant="secondary" onClick={() => router.push(`/usability-tests/${id}/analyze`)}>
+          <WuButton variant="secondary" onClick={() => router.push(`/usability-tests/${test.id}/analyze`)}>
             View Analytics
           </WuButton>
         </div>
       </div>
 
       <div className="mb-5 mt-4">
-        <UsabilityTestWorkspaceTabs testId={id} activeTab="sessions" />
+        <UsabilityTestWorkspaceTabs testId={test.id} activeTab="sessions" />
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -1,10 +1,19 @@
 import type { TreeNode } from '@/data/tree-utils';
 
+export interface FindabilityChoice {
+  id: string;
+  label: string;
+  kind?: 'option' | 'other' | 'na';
+}
+
 export interface FindabilityTask {
   id: string;
   prompt: string;
   description?: string;
   isWarmup?: boolean;
+  required?: boolean;
+  randomize?: boolean;
+  choices?: FindabilityChoice[];
   correctLeafIds: string[];
 }
 
@@ -41,6 +50,42 @@ function n(id: string, label: string, children: TreeNode[] = []): TreeNode {
   return { id, label, children };
 }
 
+export function emptyFindabilityChoices(): FindabilityChoice[] {
+  return [
+    { id: `ch-${Date.now()}-1`, label: '' },
+    { id: `ch-${Date.now()}-2`, label: '' },
+  ];
+}
+
+export function defaultUsabilityChoices(): FindabilityChoice[] {
+  return [
+    { id: 'ch-vd', label: 'Very difficult' },
+    { id: 'ch-d', label: 'Difficult' },
+    { id: 'ch-n', label: 'Neutral' },
+    { id: 'ch-e', label: 'Easy' },
+    { id: 'ch-ve', label: 'Very easy' },
+  ];
+}
+
+export function createFindabilityTask(): FindabilityTask {
+  return {
+    id: `ft-${Date.now()}`,
+    prompt: '',
+    required: true,
+    randomize: false,
+    choices: emptyFindabilityChoices(),
+    correctLeafIds: [],
+  };
+}
+
+export function cloneFindabilityTask(task: FindabilityTask): FindabilityTask {
+  return {
+    ...task,
+    correctLeafIds: [...task.correctLeafIds],
+    choices: (task.choices ?? []).map((choice) => ({ ...choice })),
+  };
+}
+
 export const MOCK_DUNKIN_TREE: TreeNode[] = [
   n('n-home', 'Home', [
     n('n-menu', 'Menu', [
@@ -74,17 +119,26 @@ export const MOCK_FINDABILITY_TASKS: FindabilityTask[] = [
     prompt: 'You want to see if a nearby shop is open this evening. Where would you look?',
     description: 'Warmup — an easy hours lookup to screen attention.',
     isWarmup: true,
+    required: true,
+    randomize: false,
+    choices: defaultUsabilityChoices(),
     correctLeafIds: ['n-hours'],
   },
   {
     id: 'ft-perks',
     prompt: 'You want to earn points on your usual morning coffee. Where would you go to sign up?',
     description: 'Avoids the label “Join DD Perks” in the prompt.',
+    required: true,
+    randomize: false,
+    choices: defaultUsabilityChoices(),
     correctLeafIds: ['n-perks'],
   },
   {
     id: 'ft-gifts',
     prompt: 'You need to send a coworker a treat without meeting in person. Where would you go?',
+    required: true,
+    randomize: false,
+    choices: defaultUsabilityChoices(),
     correctLeafIds: ['n-gifts', 'n-delivery'],
   },
 ];

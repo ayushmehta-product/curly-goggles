@@ -7,6 +7,7 @@ import type { IWuTabItem } from '@npm-questionpro/wick-ui-lib';
 import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { WuTabPlaceholder } from '@/components/ui/WuTabPlaceholder';
 import { StudyStats, type StudyStat } from '@/components/idi-studies/StudyStats';
 import { UsabilityTestsTable } from '@/components/usability-tests/UsabilityTestsTable';
 import { DeleteUsabilityTestModal } from '@/components/usability-tests/DeleteUsabilityTestModal';
@@ -94,11 +95,11 @@ export default function UsabilityTestsPage() {
     ];
   }, [tests]);
 
-  function getVisibleTests() {
+  function getVisibleTests(tabValue: TabValue) {
     const q = search.trim().toLowerCase();
     return tests
       .filter((t) => {
-        const matchesTab = activeTab === 'all' || t.status === activeTab;
+        const matchesTab = tabValue === 'all' || t.status === tabValue;
         const matchesSearch =
           q.length === 0 ||
           t.title.toLowerCase().includes(q) ||
@@ -146,21 +147,55 @@ export default function UsabilityTestsPage() {
     setDeleteTarget(null);
   }
 
-  const visibleTests = getVisibleTests();
-
   const tabItems: IWuTabItem[] = TAB_ITEMS.map((tab) => {
     const count =
       tab.value === 'all'
         ? tests.length
         : tests.filter((t) => t.status === tab.value).length;
+    const visibleTests = getVisibleTests(tab.value);
     return {
       value: tab.value,
       Trigger: `${tab.label} (${count})`,
-      Content: <span className="sr-only">{tab.label} selected</span>,
+      Content: tab.value !== activeTab ? (
+        <WuTabPlaceholder label={tab.label} />
+      ) : (
+        <div className="relative z-[1] pt-4">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="w-72">
+              <WuInput
+                variant="outlined"
+                placeholder="Search tests…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <span className="ml-auto text-xs text-gray-500">
+              Showing {isLoading ? '…' : visibleTests.length} of {tests.length} tests
+              {search.trim() && (
+                <>
+                  {' '}
+                  &middot;{' '}
+                  <button type="button" className="font-medium text-blue-600 hover:underline" onClick={() => setSearch('')}>
+                    Clear
+                  </button>
+                </>
+              )}
+            </span>
+          </div>
+          <UsabilityTestsTable
+            tests={visibleTests}
+            isLoading={isLoading}
+            noDataContent={renderNoData(tab.value)}
+            onDuplicate={handleDuplicate}
+            onArchive={handleArchive}
+            onDelete={setDeleteTarget}
+          />
+        </div>
+      ),
     };
   });
 
-  function renderNoData() {
+  function renderNoData(tabValue: TabValue) {
     if (tests.length === 0) {
       return (
         <EmptyState
@@ -188,7 +223,7 @@ export default function UsabilityTestsPage() {
     return (
       <EmptyState
         icon="wm-touch-app"
-        title={`No ${activeTab === 'all' ? '' : TEST_STATUS_LABELS[activeTab] + ' '}tests found`}
+        title={`No ${tabValue === 'all' ? '' : TEST_STATUS_LABELS[tabValue] + ' '}tests found`}
         description="Tests will appear here when they move into this workflow state."
       />
     );
@@ -210,36 +245,9 @@ export default function UsabilityTestsPage() {
 
       <WuTab
         items={tabItems}
-        defaultValue="all"
+        value={activeTab}
         onValueChange={(v) => setActiveTab(v as TabValue)}
       />
-
-      <div className="pt-4">
-        <div className="mb-3 flex items-center gap-3">
-          <div className="w-72">
-            <WuInput
-              variant="outlined"
-              placeholder="Search tests…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <span className="ml-auto text-xs text-gray-500">
-            Showing {isLoading ? '…' : visibleTests.length} of {tests.length} tests
-            {search.trim() && (
-              <> &middot; <button type="button" className="font-medium text-blue-600 hover:underline" onClick={() => setSearch('')}>Clear</button></>
-            )}
-          </span>
-        </div>
-        <UsabilityTestsTable
-          tests={visibleTests}
-          isLoading={isLoading}
-          noDataContent={renderNoData()}
-          onDuplicate={handleDuplicate}
-          onArchive={handleArchive}
-          onDelete={setDeleteTarget}
-        />
-      </div>
 
       <DeleteUsabilityTestModal
         test={deleteTarget}

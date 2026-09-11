@@ -13,6 +13,7 @@ import { FocusGroupParticipantAcknowledgments } from '@/components/focus-group-s
 import { CollaboratorsModal } from '@/components/focus-group-studies/overview/CollaboratorsModal';
 import { PhaseStatusChip } from '@/components/focus-group-studies/overview/focus-group-status-badges';
 import { MOCK_FOCUS_GROUPS } from '@/data/mock-focus-groups';
+import { routeId } from '@/data/route-id';
 import {
   MOCK_FOCUS_GROUP_WORKSPACES,
   type AcknowledgmentStatus,
@@ -47,7 +48,7 @@ function cloneWorkspace(workspace: FocusGroupWorkspace): FocusGroupWorkspace {
 }
 
 export default function FocusGroupOverviewPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = routeId(useParams<{ id: string }>().id);
   const router = useRouter();
   const { showToast } = useWuShowToast();
 

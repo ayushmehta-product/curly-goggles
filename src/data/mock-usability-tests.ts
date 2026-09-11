@@ -86,7 +86,7 @@ export const MOCK_USABILITY_TESTS: UsabilityTest[] = [
       fileName: 'Greater Midland Community — Onboarding v4',
       trackInteractiveComponents: true,
     },
-    taskDescription: 'Evaluate how new members navigate the onboarding wizard from account creation to their first dashboard action.',
+    taskDescription: 'Get set up as a new member, take a first action, and find an answer if you get stuck.',
     participantTarget: 'New users who signed up in the past 14 days',
     participantsEnrolled: 24,
     participantGoal: 30,
