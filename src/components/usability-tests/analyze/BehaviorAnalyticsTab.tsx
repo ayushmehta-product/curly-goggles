@@ -50,6 +50,7 @@ type PageOption = { value: string; label: string };
 type ScopeOption = { value: string; label: string };
 
 const WHOLE_TEST = 'all';
+const COMPARE = 'compare';
 
 const SUB_TABS: { value: SubTab; label: string }[] = [
   { value: 'overview', label: 'Overview' },
@@ -148,6 +149,11 @@ function TestOverview({
         />
         <StatCard label="Left a task" value={String(overview.leftAnyTask)} />
       </div>
+      {data.variants.length > 1 && (
+        <p className="text-sm text-ink-muted">
+          {data.variants.map((variant) => `${variant.name}: ${variant.n}`).join(' · ')} of {overview.participantsTracked}
+        </p>
+      )}
       <WuCard rounded className="overflow-hidden p-0 wu-shadow-sm">
         <WuTable
           data={rows as unknown[]}
@@ -332,23 +338,53 @@ function PickATask({ onOverview }: { onOverview: () => void }) {
   );
 }
 
+function PickAVariant({ onOverview }: { onOverview: () => void }) {
+  return (
+    <EmptyState
+      icon="wm-filter-list"
+      title="Choose a variant"
+      description="Heatmaps, scroll, paths, and repeated clicks are one design at a time."
+      action={
+        <WuButton variant="secondary" onClick={onOverview}>
+          Back to overview
+        </WuButton>
+      }
+    />
+  );
+}
+
 export function BehaviorAnalyticsTab({ data }: { data: UsabilityAnalytics }) {
   const [subTab, setSubTab] = useState<SubTab>('overview');
   const [scope, setScope] = useState(WHOLE_TEST);
+  const hasVariants = data.variants.length > 1;
+  const [variantScope, setVariantScope] = useState(hasVariants ? COMPARE : data.variants[0]?.id ?? '');
+
+  const variantOptions: ScopeOption[] = useMemo(() => {
+    if (!hasVariants) return [];
+    return [
+      { value: COMPARE, label: 'Compare' },
+      ...data.variants.map((variant) => ({ value: variant.id, label: variant.name })),
+    ];
+  }, [data.variants, hasVariants]);
+
+  const selectedVariant = data.variants.find((variant) => variant.id === variantScope) ?? null;
+  const scopedTasks = selectedVariant?.tasks ?? data.tasks;
+  const isCompare = hasVariants && variantScope === COMPARE;
 
   const scopeOptions: ScopeOption[] = useMemo(
     () => [
       { value: WHOLE_TEST, label: 'Whole test' },
-      ...data.tasks.map((task, index) => ({
+      ...scopedTasks.map((task, index) => ({
         value: task.id,
         label: `Task ${index + 1} · ${task.title}`,
       })),
     ],
-    [data.tasks]
+    [scopedTasks]
   );
   const selectedScope = scopeOptions.find((option) => option.value === scope) ?? scopeOptions[0];
-  const selectedTask = data.tasks.find((task) => task.id === scope) ?? null;
+  const selectedTask = scopedTasks.find((task) => task.id === scope) ?? null;
   const isWholeTest = scope === WHOLE_TEST;
+  const selectedVariantOption = variantOptions.find((option) => option.value === variantScope) ?? variantOptions[0];
 
   function handleScope(option: ScopeOption) {
     setScope(option.value);
@@ -357,9 +393,14 @@ export function BehaviorAnalyticsTab({ data }: { data: UsabilityAnalytics }) {
 
   const subTabItems: IWuTabItem[] = SUB_TABS.map((tab) => {
     const needsTask = tab.value !== 'overview';
+    const needsSingleVariant = tab.value === 'heatmaps' || tab.value === 'scroll-depth' || tab.value === 'click-paths' || tab.value === 'rage-misclicks';
     const content =
       tab.value !== subTab ? (
         <WuTabPlaceholder label={tab.label} />
+      ) : isCompare && needsSingleVariant ? (
+        <div className="pt-4">
+          <PickAVariant onOverview={() => setSubTab('overview')} />
+        </div>
       ) : isWholeTest && needsTask ? (
         <div className="pt-4">
           <PickATask onOverview={() => setSubTab('overview')} />
@@ -368,27 +409,30 @@ export function BehaviorAnalyticsTab({ data }: { data: UsabilityAnalytics }) {
         <div className="pt-4">
           {tab.value === 'overview' && (
             isWholeTest || !selectedTask ? (
-              <TestOverview data={data} onOpenTask={(id) => { setScope(id); setSubTab('overview'); }} />
+              <TestOverview
+                data={{ ...data, tasks: scopedTasks }}
+                onOpenTask={(id) => { setScope(id); setSubTab('overview'); }}
+              />
             ) : (
               <TaskOverview task={selectedTask} />
             )
           )}
-          {tab.value === 'heatmaps' && selectedTask && <HeatmapsSub key={selectedTask.id} task={selectedTask} />}
+          {tab.value === 'heatmaps' && selectedTask && <HeatmapsSub key={`${variantScope}-${selectedTask.id}`} task={selectedTask} />}
           {tab.value === 'scroll-depth' && selectedTask && (
-            <ScrollDepthView key={selectedTask.id} allPages={selectedTask.pageScrollDepth} />
+            <ScrollDepthView key={`${variantScope}-${selectedTask.id}`} allPages={selectedTask.pageScrollDepth} />
           )}
           {tab.value === 'session-replays' && selectedTask && (
-            <SessionReplaysSub key={selectedTask.id} task={selectedTask} />
+            <SessionReplaysSub key={`${variantScope}-${selectedTask.id}`} task={selectedTask} />
           )}
           {tab.value === 'click-paths' && selectedTask && (
             <ClickPathsView
-              key={selectedTask.id}
+              key={`${variantScope}-${selectedTask.id}`}
               nodes={selectedTask.clickPathNodes}
               links={selectedTask.clickPathLinks}
             />
           )}
           {tab.value === 'rage-misclicks' && selectedTask && (
-            <RageMisclicksSub key={selectedTask.id} task={selectedTask} />
+            <RageMisclicksSub key={`${variantScope}-${selectedTask.id}`} task={selectedTask} />
           )}
         </div>
       );
@@ -398,16 +442,38 @@ export function BehaviorAnalyticsTab({ data }: { data: UsabilityAnalytics }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="max-w-md">
-        <WuSelect
-          data={scopeOptions}
-          accessorKey={{ value: 'value', label: 'label' }}
-          value={selectedScope}
-          Label="View"
-          variant="outlined"
-          onSelect={(value) => handleScope(value as ScopeOption)}
-        />
+      <div className="flex flex-wrap gap-3">
+        {hasVariants && (
+          <div className="w-56">
+            <WuSelect
+              data={variantOptions}
+              accessorKey={{ value: 'value', label: 'label' }}
+              value={selectedVariantOption}
+              Label="Design"
+              variant="outlined"
+              onSelect={(value) => {
+                setVariantScope((value as ScopeOption).value);
+                setSubTab('overview');
+              }}
+            />
+          </div>
+        )}
+        <div className="max-w-md flex-1">
+          <WuSelect
+            data={scopeOptions}
+            accessorKey={{ value: 'value', label: 'label' }}
+            value={selectedScope}
+            Label="View"
+            variant="outlined"
+            onSelect={(value) => handleScope(value as ScopeOption)}
+          />
+        </div>
       </div>
+      {isCompare && (
+        <p className="text-xs text-ink-muted">
+          Compare shows both designs together on Overview. Choose a single design to open heatmaps, scroll, paths, or repeated clicks. n = {data.variants.map((variant) => `${variant.name} ${variant.n}`).join(' · ')}
+        </p>
+      )}
       <WuTab items={subTabItems} value={subTab} onValueChange={(v) => setSubTab(v as SubTab)} />
     </div>
   );

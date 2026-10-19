@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -27,8 +28,13 @@ const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
   { ssr: false }
 );
+const WuSelect = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSelect })),
+  { ssr: false }
+);
 
 type SessionStatus = 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+type FilterOption = { value: string; label: string };
 
 interface UtSession {
   id: string;
@@ -40,17 +46,20 @@ interface UtSession {
   rageClicks: number;
   taskCompleted: boolean;
   device: 'Desktop' | 'Mobile' | 'Tablet';
+  variantId?: string;
 }
 
 const MOCK_SESSIONS: UtSession[] = [
-  { id: 's-001', anonymousId: 'Anon:626', scheduledAt: '2026-05-12T10:00:00Z', duration: '3m 42s', status: 'completed', misclicks: 2, rageClicks: 0, taskCompleted: true, device: 'Desktop' },
-  { id: 's-002', anonymousId: 'Anon:412', scheduledAt: '2026-05-12T11:30:00Z', duration: '1m 58s', status: 'completed', misclicks: 0, rageClicks: 0, taskCompleted: false, device: 'Mobile' },
-  { id: 's-003', anonymousId: 'Anon:891', scheduledAt: '2026-05-13T09:00:00Z', duration: '5m 10s', status: 'completed', misclicks: 4, rageClicks: 1, taskCompleted: true, device: 'Desktop' },
-  { id: 's-004', anonymousId: 'Anon:247', scheduledAt: '2026-05-13T10:00:00Z', duration: '2m 33s', status: 'completed', misclicks: 1, rageClicks: 0, taskCompleted: true, device: 'Desktop' },
-  { id: 's-005', anonymousId: 'Anon:119', scheduledAt: '2026-05-13T14:00:00Z', duration: '4m 01s', status: 'completed', misclicks: 3, rageClicks: 1, taskCompleted: true, device: 'Tablet' },
-  { id: 's-006', anonymousId: 'Anon:334', scheduledAt: '2026-05-14T09:30:00Z', duration: '1m 22s', status: 'cancelled', misclicks: 0, rageClicks: 0, taskCompleted: false, device: 'Mobile' },
-  { id: 's-007', anonymousId: 'Anon:768', scheduledAt: '2026-05-14T11:00:00Z', duration: '—', status: 'scheduled', misclicks: 0, rageClicks: 0, taskCompleted: false, device: 'Desktop' },
-  { id: 's-008', anonymousId: 'Anon:215', scheduledAt: '2026-05-14T13:00:00Z', duration: '—', status: 'in-progress', misclicks: 0, rageClicks: 0, taskCompleted: false, device: 'Mobile' },
+  { id: 's-001', anonymousId: 'Edgar V.', scheduledAt: '2026-05-12T10:00:00Z', duration: '8m 12s', status: 'completed', misclicks: 2, rageClicks: 0, taskCompleted: true, device: 'Desktop', variantId: 'current' },
+  { id: 's-002', anonymousId: 'Testing A.', scheduledAt: '2026-05-12T11:30:00Z', duration: '7m 58s', status: 'completed', misclicks: 0, rageClicks: 0, taskCompleted: false, device: 'Mobile', variantId: 'current' },
+  { id: 's-003', anonymousId: 'Test 2', scheduledAt: '2026-05-13T09:00:00Z', duration: '6m 40s', status: 'completed', misclicks: 1, rageClicks: 0, taskCompleted: true, device: 'Desktop', variantId: 'new' },
+  { id: 's-004', anonymousId: 'Anon:626', scheduledAt: '2026-05-13T10:00:00Z', duration: '8m 33s', status: 'completed', misclicks: 4, rageClicks: 1, taskCompleted: false, device: 'Desktop', variantId: 'current' },
+  { id: 's-005', anonymousId: 'Anon:891', scheduledAt: '2026-05-13T14:00:00Z', duration: '7m 01s', status: 'completed', misclicks: 1, rageClicks: 0, taskCompleted: true, device: 'Tablet', variantId: 'new' },
+  { id: 's-006', anonymousId: 'Anon:412', scheduledAt: '2026-05-14T09:30:00Z', duration: '5m 22s', status: 'completed', misclicks: 0, rageClicks: 0, taskCompleted: true, device: 'Mobile', variantId: 'current' },
+  { id: 's-007', anonymousId: 'Anon:118', scheduledAt: '2026-05-14T11:00:00Z', duration: '—', status: 'scheduled', misclicks: 0, rageClicks: 0, taskCompleted: false, device: 'Desktop', variantId: 'new' },
+  { id: 's-008', anonymousId: 'Anon:215', scheduledAt: '2026-05-14T13:00:00Z', duration: '—', status: 'in-progress', misclicks: 0, rageClicks: 0, taskCompleted: false, device: 'Mobile', variantId: 'current' },
+  { id: 's-009', anonymousId: 'Anon:340', scheduledAt: '2026-05-14T15:00:00Z', duration: '7m 05s', status: 'completed', misclicks: 2, rageClicks: 1, taskCompleted: true, device: 'Desktop', variantId: 'new' },
+  { id: 's-010', anonymousId: 'Anon:906', scheduledAt: '2026-05-15T09:00:00Z', duration: '6m 12s', status: 'completed', misclicks: 0, rageClicks: 0, taskCompleted: true, device: 'Desktop', variantId: 'new' },
 ];
 
 const SESSION_STATUS_STYLES: Record<SessionStatus, string> = {
@@ -87,6 +96,21 @@ export default function UsabilityTestSessionsPage() {
   const router = useRouter();
   const { showToast } = useWuShowToast();
   const test = MOCK_USABILITY_TESTS.find((t) => t.id === id);
+  const [variantFilter, setVariantFilter] = useState('all');
+
+  const variants = test?.variants ?? [];
+  const hasVariants = variants.length > 0;
+  const filterOptions: FilterOption[] = [
+    { value: 'all', label: 'All designs' },
+    ...variants.map((variant) => ({ value: variant.id, label: variant.name })),
+  ];
+  const selectedFilter = filterOptions.find((option) => option.value === variantFilter) ?? filterOptions[0];
+
+  const sessions = useMemo(() => {
+    const rows = hasVariants ? MOCK_SESSIONS : MOCK_SESSIONS.map((session) => ({ ...session, variantId: undefined }));
+    if (!hasVariants || variantFilter === 'all') return rows;
+    return rows.filter((session) => session.variantId === variantFilter);
+  }, [hasVariants, variantFilter]);
 
   if (!test) {
     return (
@@ -104,6 +128,10 @@ export default function UsabilityTestSessionsPage() {
     showToast({ message: msg, variant: 'success' });
   }
 
+  function variantName(variantId?: string) {
+    return variants.find((variant) => variant.id === variantId)?.name ?? '—';
+  }
+
   const columns: IWuTableColumnDef<UtSession>[] = [
     {
       accessorKey: 'anonymousId',
@@ -113,6 +141,16 @@ export default function UsabilityTestSessionsPage() {
         <span className="font-mono text-sm text-gray-700">{row.original.anonymousId}</span>
       ),
     },
+    ...(hasVariants
+      ? [{
+          accessorKey: 'variantId' as const,
+          header: 'Variant',
+          size: 160,
+          cell: ({ row }: { row: { original: UtSession } }) => (
+            <WuChip variant="secondary" size="sm">{variantName(row.original.variantId)}</WuChip>
+          ),
+        }]
+      : []),
     {
       accessorKey: 'scheduledAt',
       header: 'Scheduled',
@@ -224,10 +262,10 @@ export default function UsabilityTestSessionsPage() {
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Total sessions', value: MOCK_SESSIONS.length },
-          { label: 'Completed', value: MOCK_SESSIONS.filter((s) => s.status === 'completed').length },
-          { label: 'Task success rate', value: `${Math.round((MOCK_SESSIONS.filter((s) => s.taskCompleted).length / MOCK_SESSIONS.filter((s) => s.status === 'completed').length) * 100)}%` },
-          { label: 'Avg misclicks', value: (MOCK_SESSIONS.filter((s) => s.status === 'completed').reduce((sum, s) => sum + s.misclicks, 0) / Math.max(1, MOCK_SESSIONS.filter((s) => s.status === 'completed').length)).toFixed(1) },
+          { label: 'Total sessions', value: sessions.length },
+          { label: 'Completed', value: sessions.filter((s) => s.status === 'completed').length },
+          { label: 'Task success rate', value: `${Math.round((sessions.filter((s) => s.taskCompleted).length / Math.max(1, sessions.filter((s) => s.status === 'completed').length)) * 100)}%` },
+          { label: 'Avg misclicks', value: (sessions.filter((s) => s.status === 'completed').reduce((sum, s) => sum + s.misclicks, 0) / Math.max(1, sessions.filter((s) => s.status === 'completed').length)).toFixed(1) },
         ].map(({ label, value }) => (
           <div key={label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-medium text-gray-500">{label}</p>
@@ -236,10 +274,23 @@ export default function UsabilityTestSessionsPage() {
         ))}
       </div>
 
+      {hasVariants && (
+        <div className="mb-4 w-56">
+          <WuSelect
+            data={filterOptions}
+            accessorKey={{ value: 'value', label: 'label' }}
+            value={selectedFilter}
+            Label="Design"
+            variant="outlined"
+            onSelect={(value) => setVariantFilter((value as FilterOption).value)}
+          />
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <div className="min-w-[900px]">
           <WuTable
-            data={MOCK_SESSIONS as unknown[]}
+            data={sessions as unknown[]}
             columns={columns as unknown as IWuTableColumnDef<unknown>[]}
             variant="striped"
             sort={{ enabled: true }}

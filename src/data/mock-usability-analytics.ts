@@ -96,6 +96,41 @@ export interface DiagnosticsData {
   positiveSentimentPct: string;
 }
 
+export type NpsGroup = 'detractor' | 'passive' | 'promoter';
+
+export interface AnalyticsTester {
+  id: string;
+  name: string;
+  variantId: string;
+  susScore: number;
+  susQuestions: number[];
+  npsScore: number;
+  npsGroup: NpsGroup;
+  taskEase: number[];
+  taskDurationSec: number[];
+  taskCompleted: boolean[];
+  notes: string;
+}
+
+export interface TestVideoRow {
+  id: string;
+  testerId: string;
+  name: string;
+  variantId: string;
+  duration: string;
+  rating: number;
+  notes: string;
+}
+
+export interface AnalyticsVariant {
+  id: string;
+  name: string;
+  url: string;
+  n: number;
+  tasks: AnalyticsTaskView[];
+  diagnostics: DiagnosticsData;
+}
+
 export interface BenchmarkData {
   yourSusScore: number;
   industryAverage: number;
@@ -145,6 +180,9 @@ export interface UsabilityAnalytics {
   taskBanner: string;
   testOverview: TestOverviewStats;
   tasks: AnalyticsTaskView[];
+  variants: AnalyticsVariant[];
+  testers: AnalyticsTester[];
+  videos: TestVideoRow[];
   diagnostics: DiagnosticsData;
   benchmark: BenchmarkData;
 }
@@ -346,6 +384,158 @@ const TASK_3: AnalyticsTaskView = {
   ],
 };
 
+export const VARIANT_CURRENT_ID = 'current';
+export const VARIANT_NEW_ID = 'new';
+
+export const VARIANT_PALETTE = ['#1B87E6', '#1B3380', '#F5A300', '#545E6B', '#22C55E'];
+
+function scaleTask(
+  task: AnalyticsTaskView,
+  n: number,
+  reached: number,
+  left: number
+): AnalyticsTaskView {
+  const factor = n / Math.max(1, task.behavior.participantsTracked);
+  return {
+    ...task,
+    behavior: {
+      ...task.behavior,
+      participantsTracked: n,
+      reachedSuccess: reached,
+      leftBeforeSuccess: left,
+      rageClickEvents: Math.round(task.behavior.rageClickEvents * factor),
+      misclickEvents: Math.round(task.behavior.misclickEvents * factor),
+    },
+    clickPathNodes: task.clickPathNodes.map((node) => ({ ...node, count: Math.round(node.count * factor) })),
+    clickPathLinks: task.clickPathLinks.map((link) => ({ ...link, count: Math.round(link.count * factor) })),
+    firstClicks: task.firstClicks.map((row) => ({ ...row, count: Math.round(row.count * factor) })),
+    outcomes: {
+      direct: Math.round(task.outcomes.direct * factor),
+      divertedSuccess: Math.max(0, reached - Math.round(task.outcomes.direct * factor)),
+      left,
+    },
+    dropOffs: task.dropOffs.map((row) => ({ ...row, count: Math.round(row.count * factor) })),
+    rageMisclicks: task.rageMisclicks.map((row) => ({
+      ...row,
+      rageClicks: Math.round(row.rageClicks * factor),
+      deadClicks: Math.round(row.deadClicks * factor),
+    })),
+    replays: task.replays.slice(0, Math.max(2, Math.round(task.replays.length * factor))),
+  };
+}
+
+const CURRENT_TASKS: AnalyticsTaskView[] = [
+  scaleTask(TASK_1, 12, 10, 2),
+  scaleTask(TASK_2, 12, 8, 4),
+  scaleTask(TASK_3, 12, 7, 5),
+];
+
+const NEW_TASKS: AnalyticsTaskView[] = [
+  scaleTask(TASK_1, 12, 12, 0),
+  scaleTask(TASK_2, 12, 11, 1),
+  scaleTask(TASK_3, 12, 10, 2),
+];
+
+const CURRENT_DIAGNOSTICS: DiagnosticsData = {
+  susScore: 61.0,
+  susScores: [
+    { anonymousId: 'Edgar V.', score: 50.0, deviation: '-18.03%' },
+    { anonymousId: 'Testing A.', score: 55.0, deviation: '-9.84%' },
+    { anonymousId: 'Anon:626', score: 47.5, deviation: '-22.13%' },
+    { anonymousId: 'Anon:412', score: 82.5, deviation: '+35.25%' },
+    { anonymousId: 'Anon:247', score: 70.0, deviation: '+14.75%' },
+  ],
+  nps: 18,
+  taskUsabilityRating: '3.8 / 5',
+  taskCompletionRate: '7 of 12',
+  taskDurationMedian: '8m 12s',
+  positiveSentimentPct: '58%',
+};
+
+const NEW_DIAGNOSTICS: DiagnosticsData = {
+  susScore: 70.0,
+  susScores: [
+    { anonymousId: 'Test 2', score: 77.5, deviation: '+10.71%' },
+    { anonymousId: 'Anon:891', score: 72.5, deviation: '+3.57%' },
+    { anonymousId: 'Anon:118', score: 80.0, deviation: '+14.29%' },
+    { anonymousId: 'Anon:229', score: 62.5, deviation: '-10.71%' },
+    { anonymousId: 'Anon:340', score: 67.5, deviation: '-3.57%' },
+  ],
+  nps: 46,
+  taskUsabilityRating: '4.5 / 5',
+  taskCompletionRate: '9 of 12',
+  taskDurationMedian: '7m 05s',
+  positiveSentimentPct: '76%',
+};
+
+function susQuestions(seed: number): number[] {
+  return Array.from({ length: 10 }, (_, index) => 1 + ((seed + index * 3) % 5));
+}
+
+function makeTester(
+  id: string,
+  name: string,
+  variantId: string,
+  susScore: number,
+  npsScore: number,
+  ease: number[],
+  durationSec: number[],
+  completed: boolean[],
+  notes: string
+): AnalyticsTester {
+  const npsGroup: NpsGroup = npsScore >= 9 ? 'promoter' : npsScore >= 7 ? 'passive' : 'detractor';
+  return {
+    id,
+    name,
+    variantId,
+    susScore,
+    susQuestions: susQuestions(id.length + susScore),
+    npsScore,
+    npsGroup,
+    taskEase: ease,
+    taskDurationSec: durationSec,
+    taskCompleted: completed,
+    notes,
+  };
+}
+
+const TESTERS: AnalyticsTester[] = [
+  makeTester('t-edgar', 'Edgar V.', VARIANT_CURRENT_ID, 50, 4, [2, 3, 2], [132, 198, 88], [true, false, false], 'Paused on signup and asked where to go next.'),
+  makeTester('t-testing-a', 'Testing A.', VARIANT_CURRENT_ID, 55, 6, [3, 3, 3], [118, 164, 72], [true, true, false], 'Finished join, then searched instead of checkout.'),
+  makeTester('t-626', 'Anon:626', VARIANT_CURRENT_ID, 47.5, 3, [2, 2, 2], [140, 210, 94], [true, false, false], 'Repeated clicks on the signup submit control.'),
+  makeTester('t-412', 'Anon:412', VARIANT_CURRENT_ID, 82.5, 9, [4, 4, 5], [70, 118, 48], [true, true, true], 'Fast path; marked the flow as easy.'),
+  makeTester('t-247', 'Anon:247', VARIANT_CURRENT_ID, 70, 8, [4, 3, 4], [100, 153, 61], [true, true, true], 'Recovered after opening Help.'),
+  makeTester('t-119', 'Anon:119', VARIANT_CURRENT_ID, 62.5, 7, [3, 4, 3], [108, 241, 70], [true, true, false], 'Reached checkout, then left Help.'),
+  makeTester('t-334', 'Anon:334', VARIANT_CURRENT_ID, 45, 2, [2, 2, 1], [88, 82, 55], [false, false, false], 'Left from Home on the first task.'),
+  makeTester('t-768', 'Anon:768', VARIANT_CURRENT_ID, 58, 5, [3, 3, 2], [124, 176, 80], [true, true, false], 'Needed a hint on the answer task.'),
+  makeTester('t-215', 'Anon:215', VARIANT_CURRENT_ID, 66, 8, [4, 3, 4], [96, 148, 64], [true, true, true], 'Completed all three with one diversion.'),
+  makeTester('t-903', 'Anon:903', VARIANT_CURRENT_ID, 52, 4, [2, 3, 2], [150, 188, 90], [true, false, false], 'Stuck on the coupon field.'),
+  makeTester('t-441', 'Anon:441', VARIANT_CURRENT_ID, 73, 8, [4, 4, 3], [92, 140, 58], [true, true, true], 'Quiet session, few off-target clicks.'),
+  makeTester('t-552', 'Anon:552', VARIANT_CURRENT_ID, 60, 6, [3, 3, 3], [110, 160, 68], [true, true, false], 'Found Help after searching.'),
+  makeTester('t-test2', 'Test 2', VARIANT_NEW_ID, 77.5, 9, [5, 4, 4], [84, 132, 50], [true, true, true], 'Straight path through the new layout.'),
+  makeTester('t-891', 'Anon:891', VARIANT_NEW_ID, 72.5, 8, [4, 4, 4], [90, 146, 56], [true, true, true], 'One extra click on product reviews.'),
+  makeTester('t-118', 'Anon:118', VARIANT_NEW_ID, 80, 10, [5, 5, 4], [72, 118, 44], [true, true, true], 'Called the new flow obvious.'),
+  makeTester('t-229', 'Anon:229', VARIANT_NEW_ID, 62.5, 6, [3, 3, 4], [128, 170, 62], [true, true, false], 'Missed Help in the new nav.'),
+  makeTester('t-340', 'Anon:340', VARIANT_NEW_ID, 67.5, 7, [4, 3, 4], [102, 154, 58], [true, true, true], 'Paused once on checkout.'),
+  makeTester('t-451', 'Anon:451', VARIANT_NEW_ID, 74, 9, [4, 5, 4], [88, 126, 52], [true, true, true], 'No diversions.'),
+  makeTester('t-562', 'Anon:562', VARIANT_NEW_ID, 69, 8, [4, 4, 3], [96, 138, 60], [true, true, true], 'Used search, then recovered.'),
+  makeTester('t-673', 'Anon:673', VARIANT_NEW_ID, 58, 5, [3, 3, 3], [140, 188, 74], [true, false, true], 'Left the first-action task.'),
+  makeTester('t-784', 'Anon:784', VARIANT_NEW_ID, 71, 8, [4, 4, 4], [86, 130, 48], [true, true, true], 'Marked all tasks easy.'),
+  makeTester('t-895', 'Anon:895', VARIANT_NEW_ID, 64, 7, [3, 4, 3], [112, 162, 66], [true, true, false], 'Asked where answers live.'),
+  makeTester('t-906', 'Anon:906', VARIANT_NEW_ID, 76, 9, [5, 4, 5], [78, 122, 46], [true, true, true], 'Fastest session on the new design.'),
+  makeTester('t-017', 'Anon:017', VARIANT_NEW_ID, 68, 7, [4, 3, 4], [104, 150, 54], [true, true, true], 'One rage click on checkout, then finished.'),
+];
+
+const VIDEOS: TestVideoRow[] = TESTERS.map((tester, index) => ({
+  id: `vid-${tester.id}`,
+  testerId: tester.id,
+  name: tester.name,
+  variantId: tester.variantId,
+  duration: `${6 + (index % 5)}m ${12 + (index % 40)}s`,
+  rating: Math.min(5, Math.max(2, Math.round(tester.susScore / 20))),
+  notes: tester.notes,
+}));
+
 export const MOCK_USABILITY_ANALYTICS: UsabilityAnalytics = {
   testId: 'ut-001',
   taskBanner: 'Get set up as a new member, take a first action, and find an answer if you get stuck.',
@@ -357,14 +547,36 @@ export const MOCK_USABILITY_ANALYTICS: UsabilityAnalytics = {
     medianSessionTime: '7m 40s',
   },
   tasks: [TASK_1, TASK_2, TASK_3],
+  variants: [
+    {
+      id: VARIANT_CURRENT_ID,
+      name: 'Current onboarding',
+      url: 'https://midland.example.com',
+      n: 12,
+      tasks: CURRENT_TASKS,
+      diagnostics: CURRENT_DIAGNOSTICS,
+    },
+    {
+      id: VARIANT_NEW_ID,
+      name: 'New onboarding',
+      url: 'https://new.midland.example.com',
+      n: 12,
+      tasks: NEW_TASKS,
+      diagnostics: NEW_DIAGNOSTICS,
+    },
+  ],
+  testers: TESTERS,
+  videos: VIDEOS,
   diagnostics: {
     susScore: 65.5,
     susScores: [
-      { anonymousId: 'Anon:626', score: 50.0, deviation: '-23.66%' },
-      { anonymousId: 'Anon:412', score: 100.0, deviation: '+52.67%' },
-      { anonymousId: 'Anon:891', score: 55.0, deviation: '-16.03%' },
-      { anonymousId: 'Anon:247', score: 75.0, deviation: '+14.50%' },
-      { anonymousId: 'Anon:119', score: 62.5, deviation: '-4.58%' },
+      { anonymousId: 'Edgar V.', score: 50.0, deviation: '-23.66%' },
+      { anonymousId: 'Testing A.', score: 55.0, deviation: '-16.03%' },
+      { anonymousId: 'Anon:626', score: 47.5, deviation: '-27.48%' },
+      { anonymousId: 'Anon:412', score: 82.5, deviation: '+25.95%' },
+      { anonymousId: 'Anon:247', score: 70.0, deviation: '+6.87%' },
+      { anonymousId: 'Test 2', score: 77.5, deviation: '+18.32%' },
+      { anonymousId: 'Anon:891', score: 72.5, deviation: '+10.69%' },
     ],
     nps: 32,
     taskUsabilityRating: '4.2 / 5',
@@ -379,3 +591,13 @@ export const MOCK_USABILITY_ANALYTICS: UsabilityAnalytics = {
     industryLabel: 'Software & SaaS',
   },
 };
+
+export function analyticsWithoutVariants(source: UsabilityAnalytics, testId: string): UsabilityAnalytics {
+  return {
+    ...source,
+    testId,
+    variants: [],
+    testers: source.testers.map((tester) => ({ ...tester, variantId: '' })),
+    videos: source.videos.map((video) => ({ ...video, variantId: '' })),
+  };
+}

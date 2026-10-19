@@ -65,6 +65,19 @@ export interface ChatMessage {
 export interface ContextOverride {
   idiSessionIds: string[];
   fgFocusGroupIds: string[];
+  usabilityTestIds?: string[];
+  idiStudyIds?: string[];
+  studyKeys?: string[];
+}
+
+export type InsightsStudyKind = 'usability-test' | 'interview' | 'focus-group' | 'study';
+
+export interface InsightsStudySelection {
+  key: string;
+  kind: InsightsStudyKind;
+  id: string;
+  folderId?: string;
+  name: string;
 }
 
 export interface ChatThread {

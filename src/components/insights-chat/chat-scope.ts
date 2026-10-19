@@ -4,7 +4,8 @@ import { MOCK_STUDY_OPERATIONAL_OVERVIEWS } from '@/data/mock-study-overview';
 import { MOCK_MODERATED_WORKSPACE_SESSIONS, type ModeratedWorkspaceSession } from '@/data/mock-moderated-sessions';
 import { MOCK_FOCUS_GROUP_SESSIONS, type FocusGroupSession } from '@/data/mock-focus-group-session';
 import { MOCK_FOCUS_GROUP_WORKSPACES } from '@/data/mock-focus-group-scheduling';
-import { getFolderById, getStudyById } from '@/data/mock-projects';
+import { getFolderById, getStudyById, MOCK_FOLDER_STUDIES } from '@/data/mock-projects';
+import { MOCK_USABILITY_TESTS } from '@/data/mock-usability-tests';
 import type { InsightScopeRef } from '@/data/mock-ai-insights';
 import type { ChatScope, ChatSessionSource, ContextOverride } from './chat-types';
 
@@ -20,7 +21,14 @@ export function isChatWidgetHiddenRoute(pathname: string): boolean {
 }
 
 export function hasContextOverride(override: ContextOverride | undefined): boolean {
-  return !!override && (override.idiSessionIds.length > 0 || override.fgFocusGroupIds.length > 0);
+  if (!override) return false;
+  return (
+    override.idiSessionIds.length > 0 ||
+    override.fgFocusGroupIds.length > 0 ||
+    (override.usabilityTestIds?.length ?? 0) > 0 ||
+    (override.idiStudyIds?.length ?? 0) > 0 ||
+    (override.studyKeys?.length ?? 0) > 0
+  );
 }
 
 const VIDEO_SINGLE_PROMPTS = [
@@ -213,8 +221,15 @@ function resolveProjectDetailScope(folderId: string, studyId?: string) {
  * there is no single Themes/Tags/Annotations surface for it to write back to.
  */
 function resolveOverrideScope(override: ContextOverride) {
-  const idiSessions = MOCK_MODERATED_WORKSPACE_SESSIONS.filter((session) => override.idiSessionIds.includes(session.id));
+  const studySessionIds = (override.idiStudyIds ?? []).flatMap((studyId) =>
+    MOCK_MODERATED_WORKSPACE_SESSIONS.filter((session) => session.studyId === studyId).map((session) => session.id)
+  );
+  const idiSessionIds = [...new Set([...override.idiSessionIds, ...studySessionIds])];
+  const idiSessions = MOCK_MODERATED_WORKSPACE_SESSIONS.filter((session) => idiSessionIds.includes(session.id));
   const fgGroups = MOCK_FOCUS_GROUPS.filter((group) => override.fgFocusGroupIds.includes(group.id));
+  const usabilityTests = MOCK_USABILITY_TESTS.filter((test) => (override.usabilityTestIds ?? []).includes(test.id));
+  const studies = MOCK_FOLDER_STUDIES.filter((study) => (override.studyKeys ?? []).includes(`${study.folderId}:${study.id}`));
+  const interviewStudies = MOCK_IDI_STUDIES.filter((study) => (override.idiStudyIds ?? []).includes(study.id));
 
   const fgSources = fgGroups
     .map((group) => {
@@ -224,7 +239,19 @@ function resolveOverrideScope(override: ContextOverride) {
     .filter((source): source is ChatSessionSource => source !== null);
 
   const sources: ChatSessionSource[] = [...idiSessions.map(toIdiSource), ...fgSources];
-  if (sources.length === 0) return null;
+  const labelParts = [
+    ...interviewStudies.map((study) => study.title),
+    ...idiSessions.filter((session) => !(override.idiStudyIds ?? []).includes(session.studyId)).map((session) => session.participantName),
+    ...fgGroups.map((group) => group.title),
+    ...usabilityTests.map((test) => test.title),
+    ...studies.map((study) => study.name),
+  ];
+  const label = labelParts.length > 0 ? labelParts.join(', ') : 'Selected studies';
+
+  if (sources.length === 0) {
+    const scope: ChatScope = { kind: 'generic', label };
+    return { scope, suggestedPrompts: GENERIC_PROMPTS };
+  }
 
   const distinctIdiStudyIds = new Set(idiSessions.map((session) => session.studyId));
 
@@ -236,9 +263,6 @@ function resolveOverrideScope(override: ContextOverride) {
   } else if (fgGroups.length === 1 && idiSessions.length === 0) {
     saveScope = { kind: 'fg-session', focusGroupId: fgGroups[0].id };
   }
-
-  const labelParts = [...idiSessions.map((session) => session.participantName), ...fgGroups.map((group) => group.title)];
-  const label = labelParts.length > 0 ? labelParts.join(', ') : 'Selected context';
 
   const scope: ChatScope = { kind: 'multi', label, sources, saveScope };
   return { scope, suggestedPrompts: sources.length > 1 ? MULTI_SCOPE_PROMPTS : VIDEO_SINGLE_PROMPTS };
@@ -358,7 +382,7 @@ export function overrideFromSelectedOptions(options: ContextPickerOption[]): Con
     if (kind === 'fg' && a) fgFocusGroupIds.push(a);
   }
 
-  return { idiSessionIds, fgFocusGroupIds };
+  return { idiSessionIds, fgFocusGroupIds, usabilityTestIds: [], idiStudyIds: [], studyKeys: [] };
 }
 
 export function selectedOptionsFromOverride(

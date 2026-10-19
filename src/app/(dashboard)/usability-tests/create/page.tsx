@@ -7,6 +7,7 @@ import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StudySetupStep } from '@/components/usability-tests/create/StudySetupStep';
 import { LinksStep } from '@/components/usability-tests/create/LinksStep';
+import { AudienceStep } from '@/components/usability-tests/create/AudienceStep';
 import { TeamStep } from '@/components/idi-studies/create/TeamStep';
 import { SchedulingStep } from '@/components/idi-studies/create/SchedulingStep';
 import { TaskScriptStep } from '@/components/usability-tests/create/TaskScriptStep';
@@ -16,9 +17,11 @@ import { pageFromUrl, type SitePage } from '@/data/site-page-utils';
 import {
   applyDefaultStartPages,
   DEFAULT_CREATE_DRAFT,
+  getTaskMapping,
   loadCreateDraft,
   pageCatalogUrl,
   saveCreateDraft,
+  setTaskMapping,
   type UsabilityCreateDraft,
   type UsabilitySurface,
 } from '@/data/usability-create-storage';
@@ -26,12 +29,24 @@ import {
 const WIZARD_STEPS = [
   'Study setup',
   'Links',
+  'Audience',
   'Team',
   'Scheduling',
   'Discussion guide',
   'Post-session',
   'Review & publish',
 ];
+
+function stepFromQuery(stepParam: string | null): number {
+  if (stepParam === 'review') return 8;
+  if (stepParam === 'post-session') return 7;
+  if (stepParam === 'discussion-guide') return 6;
+  if (stepParam === 'scheduling') return 5;
+  if (stepParam === 'team') return 4;
+  if (stepParam === 'audience') return 3;
+  if (stepParam === 'links') return 2;
+  return 1;
+}
 
 function StepperProgress({ currentStep }: { currentStep: number }) {
   return (
@@ -97,7 +112,7 @@ export default function CreateUsabilityTestPage() {
   const { showToast } = useWuShowToast();
   const [draft, setDraft] = useState<UsabilityCreateDraft>(DEFAULT_CREATE_DRAFT);
   const [hydrated, setHydrated] = useState(false);
-  const [fetchingPages, setFetchingPages] = useState(false);
+  const [fetchingVariantId, setFetchingVariantId] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft(loadCreateDraft());
@@ -108,36 +123,24 @@ export default function CreateUsabilityTestPage() {
     if (hydrated) saveCreateDraft(draft);
   }, [draft, hydrated]);
 
-  const stepParam = searchParams.get('step');
-  const currentStep =
-    stepParam === 'review'
-      ? 7
-      : stepParam === 'post-session'
-        ? 6
-        : stepParam === 'discussion-guide'
-          ? 5
-          : stepParam === 'scheduling'
-            ? 4
-            : stepParam === 'team'
-              ? 3
-              : stepParam === 'links'
-                ? 2
-                : 1;
+  const currentStep = stepFromQuery(searchParams.get('step'));
 
   const pageHeader =
-    currentStep === 7
-      ? { title: 'Review & publish', description: 'Check that each task has a start and an observable success before you launch.' }
-      : currentStep === 6
+    currentStep === 8
+      ? { title: 'Review & publish', description: 'Check variants, the even split, and that each task has a start and an observable success.' }
+      : currentStep === 7
         ? { title: 'Post-session', description: 'Ask how the task felt after people try to reach success.' }
-        : currentStep === 5
+        : currentStep === 6
           ? { title: 'Discussion guide', description: 'Give people a goal. Then mark where the task starts and what counts as success.' }
-          : currentStep === 4
+          : currentStep === 5
             ? { title: 'Scheduling', description: 'Configure participant booking availability.' }
-            : currentStep === 3
+            : currentStep === 4
               ? { title: 'Study team', description: 'Assign moderators and observers for this test.' }
-              : currentStep === 2
-                ? { title: 'Links', description: 'Connect the product so we can list pages and record where people go.' }
-                : { title: 'Create usability test', description: 'Name the study and describe the goal people should try to complete.' };
+              : currentStep === 3
+                ? { title: 'Audience', description: 'Choose who joins, then see how testers are randomly assigned across designs.' }
+                : currentStep === 2
+                  ? { title: 'Links', description: 'Connect each design so we can list pages and record where people go.' }
+                  : { title: 'Create usability test', description: 'Name the study and describe the goal people should try to complete.' };
 
   function nav(step?: string) {
     router.push(step ? `/usability-tests/create?step=${step}` : '/usability-tests/create');
@@ -149,22 +152,29 @@ export default function CreateUsabilityTestPage() {
   }
 
   function applySurfaceDefaults(next: UsabilityCreateDraft, surface: UsabilitySurface | null): UsabilityCreateDraft {
-    if (surface === 'figma') {
-      return {
-        ...next,
+    if (surface !== 'figma') return next;
+    return {
+      ...next,
+      variants: next.variants.map((variant) => ({
+        ...variant,
         pages: [],
         fetchError: null,
         fetchBlocked: false,
-        tasks: next.tasks.map((task) => ({
-          ...task,
-          startPageId: null,
-          successMode: 'participant-done',
-          successPageId: null,
-          successLandmarkId: null,
-        })),
-      };
-    }
-    return next;
+      })),
+      tasks: next.tasks.map((task) => {
+        let updated = task;
+        for (const variant of next.variants) {
+          const mapping = getTaskMapping(updated, variant.id);
+          updated = setTaskMapping(updated, variant.id, {
+            ...mapping,
+            successMode: 'participant-done',
+            successPageId: null,
+            successLandmarkId: null,
+          });
+        }
+        return updated;
+      }),
+    };
   }
 
   function handleDraftChange(patch: Partial<UsabilityCreateDraft>) {
@@ -177,8 +187,8 @@ export default function CreateUsabilityTestPage() {
     });
   }
 
-  async function fetchSitePages(url: string, markVerified: boolean) {
-    setFetchingPages(true);
+  async function fetchSitePages(url: string, markVerified: boolean, variantId: string) {
+    setFetchingVariantId(variantId);
     try {
       const response = await fetch('/api/site-pages', {
         method: 'POST',
@@ -200,12 +210,19 @@ export default function CreateUsabilityTestPage() {
         }
         setDraft((prev) => ({
           ...prev,
-          pages: fallbackPages,
-          fetchError: json.error ?? 'Could not list pages from this website.',
-          fetchBlocked: true,
-          website: markVerified && prev.surface === 'website' ? { ...prev.website, verified: true } : prev.website,
-          saas: markVerified && prev.surface === 'saas' ? { ...prev.saas, verified: true } : prev.saas,
-          tasks: applyDefaultStartPages(prev.tasks, fallbackPages),
+          variants: prev.variants.map((variant) =>
+            variant.id === variantId
+              ? {
+                  ...variant,
+                  pages: fallbackPages,
+                  fetchError: json.error ?? 'Could not list pages from this website.',
+                  fetchBlocked: true,
+                  website: markVerified && prev.surface === 'website' ? { ...variant.website, verified: true } : variant.website,
+                  saas: markVerified && prev.surface === 'saas' ? { ...variant.saas, verified: true } : variant.saas,
+                }
+              : variant
+          ),
+          tasks: applyDefaultStartPages(prev.tasks, fallbackPages, variantId),
         }));
         showToast({
           message: json.error ?? 'Could not list pages. You can add page URLs in the discussion guide.',
@@ -217,12 +234,19 @@ export default function CreateUsabilityTestPage() {
       const pages = json.pages;
       setDraft((prev) => ({
         ...prev,
-        pages,
-        fetchError: json.error ?? null,
-        fetchBlocked: Boolean(json.blocked),
-        website: markVerified && prev.surface === 'website' ? { ...prev.website, verified: true } : prev.website,
-        saas: markVerified && prev.surface === 'saas' ? { ...prev.saas, verified: true } : prev.saas,
-        tasks: applyDefaultStartPages(prev.tasks, pages),
+        variants: prev.variants.map((variant) =>
+          variant.id === variantId
+            ? {
+                ...variant,
+                pages,
+                fetchError: json.error ?? null,
+                fetchBlocked: Boolean(json.blocked),
+                website: markVerified && prev.surface === 'website' ? { ...variant.website, verified: true } : variant.website,
+                saas: markVerified && prev.surface === 'saas' ? { ...variant.saas, verified: true } : variant.saas,
+              }
+            : variant
+        ),
+        tasks: applyDefaultStartPages(prev.tasks, pages, variantId),
       }));
       if (json.blocked) {
         showToast({
@@ -238,18 +262,20 @@ export default function CreateUsabilityTestPage() {
     } catch {
       showToast({ message: 'Could not fetch that website.', variant: 'error' });
     } finally {
-      setFetchingPages(false);
+      setFetchingVariantId(null);
     }
   }
 
-  async function handleVerifyLinks() {
+  async function handleVerifyLinks(variantId: string) {
     if (draft.surface === 'figma') return;
-    const url = pageCatalogUrl(draft);
+    const variant = draft.variants.find((item) => item.id === variantId);
+    if (!variant) return;
+    const url = pageCatalogUrl(variant, draft.surface);
     if (!url) {
       showToast({ message: 'Enter a website URL first.', variant: 'error' });
       return;
     }
-    await fetchSitePages(url, true);
+    await fetchSitePages(url, true, variantId);
   }
 
   return (
@@ -273,32 +299,41 @@ export default function CreateUsabilityTestPage() {
       {currentStep === 2 && (
         <LinksStep
           draft={draft}
-          fetchingPages={fetchingPages}
+          fetchingVariantId={fetchingVariantId}
           onDraftChange={handleDraftChange}
           onVerify={handleVerifyLinks}
           onBack={() => nav()}
           onSaveDraft={() => showToast({ message: 'Draft saved', variant: 'success' })}
-          onContinue={() => nav('team')}
+          onContinue={() => nav('audience')}
         />
       )}
       {currentStep === 3 && (
-        <TeamStep
+        <AudienceStep
+          draft={draft}
+          onDraftChange={handleDraftChange}
           onBack={() => nav('links')}
+          onSaveDraft={() => showToast({ message: 'Draft saved', variant: 'success' })}
+          onContinue={() => nav('team')}
+        />
+      )}
+      {currentStep === 4 && (
+        <TeamStep
+          onBack={() => nav('audience')}
           onSaveDraft={() => showToast({ message: 'Draft saved', variant: 'success' })}
           onContinue={() => nav('scheduling')}
         />
       )}
-      {currentStep === 4 && (
+      {currentStep === 5 && (
         <SchedulingStep
           onBack={() => nav('team')}
           onSaveDraft={() => showToast({ message: 'Draft saved', variant: 'success' })}
           onContinue={() => nav('discussion-guide')}
         />
       )}
-      {currentStep === 5 && (
+      {currentStep === 6 && (
         <TaskScriptStep
           draft={draft}
-          fetchingPages={fetchingPages}
+          fetchingPages={Boolean(fetchingVariantId)}
           onDraftChange={handleDraftChange}
           onRefreshPages={handleVerifyLinks}
           onBack={() => nav('scheduling')}
@@ -306,14 +341,14 @@ export default function CreateUsabilityTestPage() {
           onContinue={() => nav('post-session')}
         />
       )}
-      {currentStep === 6 && (
+      {currentStep === 7 && (
         <PostSessionStep
           onBack={() => nav('discussion-guide')}
           onSaveDraft={() => showToast({ message: 'Draft saved', variant: 'success' })}
           onContinue={() => nav('review')}
         />
       )}
-      {currentStep === 7 && (
+      {currentStep === 8 && (
         <ReviewPublishStep
           draft={draft}
           onBack={() => nav('post-session')}

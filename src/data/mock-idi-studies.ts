@@ -24,6 +24,8 @@ export interface IdiStudy {
   pendingParticipantResponses: number;
   activeSessions: number;
   tags?: string[];
+  /** When set, the study is only visible inside this folder. */
+  folderId?: string;
 }
 
 export const STUDY_STATUS_LABELS: Record<StudyStatus, string> = {
@@ -53,6 +55,7 @@ export const MOCK_IDI_STUDIES: IdiStudy[] = [
     pendingParticipantResponses: 6,
     activeSessions: 3,
     tags: ['onboarding', 'enterprise admins', 'activation'],
+    folderId: 'idf-enterprise',
   },
   {
     id: 'idi-002',
@@ -91,6 +94,7 @@ export const MOCK_IDI_STUDIES: IdiStudy[] = [
     pendingParticipantResponses: 0,
     activeSessions: 0,
     tags: ['healthcare workflows', 'care teams'],
+    folderId: 'idf-healthcare',
   },
   {
     id: 'idi-004',
@@ -110,6 +114,7 @@ export const MOCK_IDI_STUDIES: IdiStudy[] = [
     pendingParticipantResponses: 0,
     activeSessions: 0,
     tags: ['procurement tools', 'approval flows', 'vendor risk'],
+    folderId: 'idf-enterprise',
   },
   {
     id: 'idi-005',

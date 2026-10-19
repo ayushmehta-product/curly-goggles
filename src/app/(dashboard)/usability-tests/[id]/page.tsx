@@ -207,6 +207,28 @@ export default function UsabilityTestOverviewPage() {
               ))}
             </div>
 
+            {test.variants && test.variants.length > 0 && (
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Design variants</p>
+                <p className="mt-1 text-sm font-semibold text-gray-900">
+                  {test.variants.map((variant) => variant.enrolled).join(' / ')} of {test.participantGoal}
+                </p>
+                <div className="mt-3 space-y-2">
+                  {test.variants.map((variant) => (
+                    <div key={variant.id} className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800">{variant.name}</p>
+                        <p className="truncate text-xs text-gray-500">{variant.url}</p>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold text-gray-900">
+                        {variant.enrolled}/{variant.goal}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <WuButton
               Icon={<span className="wm-monitoring" />}
               variant="secondary"

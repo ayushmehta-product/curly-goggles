@@ -1,8 +1,14 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { RECRUITMENT_LABELS } from '@/data/mock-usability-audience';
 import {
-  isTaskConfigured,
+  areAllVariantsConnected,
+  evenSplit,
+  formatEvenSplit,
+  isTaskConfiguredForAllVariants,
+  isVariantConnected,
+  pageCatalogUrl,
   taskSuccessSummary,
   type UsabilityCreateDraft,
 } from '@/data/usability-create-storage';
@@ -51,61 +57,92 @@ const SURFACE_LABELS = {
 } as const;
 
 export function ReviewPublishStep({ draft, onBack, onSaveDraft, onPublish }: ReviewPublishStepProps) {
-  const hasPages = draft.pages.length > 0;
-  const configuredTasks = draft.tasks.filter((task) => isTaskConfigured(task, hasPages));
+  const configuredTasks = draft.tasks.filter((task) => isTaskConfiguredForAllVariants(task, draft));
   const tasksReady = configuredTasks.length === draft.tasks.length && draft.tasks.length > 0;
   const surfaceLabel = draft.surface ? SURFACE_LABELS[draft.surface] : 'Not selected';
-  const linksReady = draft.surface === 'figma'
-    ? draft.figma.connected && !!draft.figma.file
-    : draft.surface === 'saas'
-      ? draft.saas.verified
-      : draft.website.verified;
-  const pageNote = draft.surface === 'figma'
-    ? 'Prototype — people mark each task done'
-    : hasPages
-      ? `${draft.pages.length} page${draft.pages.length === 1 ? '' : 's'} listed`
-      : 'No pages listed — add URLs or use “Participant marks done”';
+  const linksReady = areAllVariantsConnected(draft);
+  const split = evenSplit(draft.audience.participantGoal, draft.variants.length);
+  const splitLabel = formatEvenSplit(split);
+  const screenersReady = draft.audience.screeners.every((item) => item.prompt.trim().length > 0);
+  const ndaReady = !draft.audience.requireNda || draft.audience.ndaCommit;
 
   const readinessItems: Array<{ label: string; description: string; state: ReadinessState }> = [
     {
-      label: 'Testing surface connected',
+      label: 'Design variants connected',
       description: linksReady
-        ? `${surfaceLabel} is connected${draft.website.recordingOnly && draft.surface === 'website' ? ' (recording only)' : ''}.`
-        : 'Connect a website, product, or prototype on Links.',
+        ? `${draft.variants.length} ${draft.variants.length === 1 ? 'design is' : 'designs are'} connected.`
+        : 'Connect every design on Links.',
       state: linksReady ? 'success' : 'warning',
+    },
+    {
+      label: 'Audience ready',
+      description: `${RECRUITMENT_LABELS[draft.audience.method]}. ${splitLabel}.`,
+      state: 'success',
+    },
+    {
+      label: 'Screeners and NDA',
+      description: [
+        draft.audience.screeners.length === 0
+          ? 'No screeners'
+          : screenersReady
+            ? `${draft.audience.screeners.length} screeners`
+            : 'A screener is missing a prompt',
+        draft.audience.requireNda
+          ? ndaReady
+            ? 'NDA required'
+            : 'NDA is missing the commit checkbox'
+          : 'NDA off',
+      ].join(' · '),
+      state: screenersReady && ndaReady ? 'success' : 'warning',
+    },
+    {
+      label: 'Same tasks, per-variant success',
+      description: tasksReady
+        ? `${configuredTasks.length} of ${draft.tasks.length} ${draft.tasks.length === 1 ? 'task has' : 'tasks have'} start and success on every design.`
+        : `${configuredTasks.length} of ${draft.tasks.length} ${draft.tasks.length === 1 ? 'task is' : 'tasks are'} ready on every design.`,
+      state: tasksReady ? 'success' : 'warning',
     },
     {
       label: 'Moderator assigned',
       description: '2 moderators are available for live interviews.',
       state: 'success',
     },
-    {
-      label: 'Scheduling availability configured',
-      description: '5 weekdays are open for participant booking.',
-      state: 'success',
-    },
-    {
-      label: 'Observable success set',
-      description: tasksReady
-        ? `${configuredTasks.length} of ${draft.tasks.length} ${draft.tasks.length === 1 ? 'task has' : 'tasks have'} a start and a success.`
-        : `${configuredTasks.length} of ${draft.tasks.length} ${draft.tasks.length === 1 ? 'task has' : 'tasks have'} a start and a success.`,
-      state: tasksReady ? 'success' : 'warning',
-    },
-    {
-      label: 'Observer passcode disabled',
-      description: 'Observers can join approved sessions without an additional passcode.',
-      state: 'warning',
-    },
   ];
 
   const configGroups = [
     {
       title: 'Study setup',
-      items: ['20-minute sessions', 'Target: 12 participants'],
+      items: ['20-minute sessions', `Target: ${draft.audience.participantGoal} participants`],
     },
     {
       title: 'Links',
-      items: [surfaceLabel, pageNote],
+      items: [
+        surfaceLabel,
+        ...draft.variants.map((variant) => {
+          const connected = isVariantConnected(draft.surface, variant);
+          const target = draft.surface === 'figma'
+            ? variant.figma.file || 'No file'
+            : pageCatalogUrl(variant, draft.surface) || 'No URL';
+          return `${variant.name}: ${connected ? target : 'Not connected'}`;
+        }),
+      ],
+    },
+    {
+      title: 'Audience',
+      items: [
+        RECRUITMENT_LABELS[draft.audience.method],
+        splitLabel,
+        draft.audience.screeners.length === 0 ? 'No screeners' : `${draft.audience.screeners.length} screeners`,
+        draft.audience.requireNda ? 'NDA required' : 'NDA off',
+      ],
+    },
+    {
+      title: 'Discussion guide',
+      items: draft.tasks.flatMap((task, index) =>
+        draft.variants.map((variant) =>
+          `Task ${index + 1} · ${variant.name}: ${taskSuccessSummary(task, variant.pages, variant.id)}`
+        )
+      ),
     },
     {
       title: 'Team',
@@ -115,17 +152,9 @@ export function ReviewPublishStep({ draft, onBack, onSaveDraft, onPublish }: Rev
       title: 'Scheduling',
       items: ['Weekday availability configured', '24 available booking sessions'],
     },
-    {
-      title: 'Discussion guide',
-      items: draft.tasks.map((task, index) => `Task ${index + 1}: ${taskSuccessSummary(task, draft.pages)}`),
-    },
-    {
-      title: 'Post-session',
-      items: ['Thank-you message configured', 'Post-session survey enabled'],
-    },
   ];
 
-  const readyToLaunch = linksReady && tasksReady;
+  const readyToLaunch = linksReady && tasksReady && screenersReady && ndaReady;
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -137,8 +166,8 @@ export function ReviewPublishStep({ draft, onBack, onSaveDraft, onPublish }: Rev
               <p className="mt-1 text-sm font-semibold text-gray-900">Greater Midland Community Onboarding Flow</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500">Session length</p>
-              <p className="mt-1 text-sm font-semibold text-gray-900">20 mins</p>
+              <p className="text-xs font-medium text-gray-500">Testers</p>
+              <p className="mt-1 text-sm font-semibold text-gray-900">{draft.audience.participantGoal}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-gray-500">Testing surface</p>
@@ -150,7 +179,23 @@ export function ReviewPublishStep({ draft, onBack, onSaveDraft, onPublish }: Rev
           </span>
         </SectionShell>
 
-        <SectionShell title="Launch checklist" description="Confirm start and success are set before you collect sessions.">
+        <SectionShell title="Design variants" description="Each tester is randomly assigned to one design.">
+          <div className="divide-y divide-gray-100">
+            {draft.variants.map((variant, index) => (
+              <div key={variant.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{variant.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {draft.surface === 'figma' ? (variant.figma.file || 'No file') : (pageCatalogUrl(variant, draft.surface) || 'No URL')}
+                  </p>
+                </div>
+                <span className="text-sm font-semibold text-gray-800">{split[index]} testers</span>
+              </div>
+            ))}
+          </div>
+        </SectionShell>
+
+        <SectionShell title="Launch checklist" description="Confirm start and success are set on every design before you collect sessions.">
           <div className="divide-y divide-gray-100">
             {readinessItems.map((item) => (
               <div key={item.label} className="flex gap-3 py-3 first:pt-0 last:pb-0">
@@ -196,7 +241,7 @@ export function ReviewPublishStep({ draft, onBack, onSaveDraft, onPublish }: Rev
                 </p>
                 <p className={`text-xs ${readyToLaunch ? 'text-green-700' : 'text-amber-800'}`}>
                   {readyToLaunch
-                    ? 'Each task has an observable success. Analyze will score against that end state.'
+                    ? 'Each task has an observable success on every design. Analyze will score against that end state.'
                     : 'Set start and success on the discussion guide so results have a clear pass/fail.'}
                 </p>
               </div>
@@ -204,23 +249,17 @@ export function ReviewPublishStep({ draft, onBack, onSaveDraft, onPublish }: Rev
           </div>
           <div className="mt-4 space-y-3">
             {[
-              { label: 'Moderators available', value: '2' },
-              { label: 'Booking sessions', value: '24' },
-              { label: 'Pages listed', value: draft.surface === 'figma' ? 'Prototype' : String(draft.pages.length) },
+              { label: 'Design variants', value: String(draft.variants.length) },
+              { label: 'Even split', value: split.join(' / ') },
               { label: 'Tasks with success', value: `${configuredTasks.length}/${draft.tasks.length}` },
+              { label: 'Recruitment', value: RECRUITMENT_LABELS[draft.audience.method] },
             ].map((stat) => (
               <div key={stat.label} className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0">
                 <span className="text-sm text-gray-500">{stat.label}</span>
-                <span className="text-sm font-semibold text-gray-900">{stat.value}</span>
+                <span className="text-right text-sm font-semibold text-gray-900">{stat.value}</span>
               </div>
             ))}
           </div>
-        </SectionShell>
-
-        <SectionShell title="What analyze will show">
-          <p className="text-xs leading-5 text-gray-600">
-            After sessions start, Behavior analytics reports who reached the success you set, who recovered after a diversion, and who left before that end state. Heatmaps, scroll, and replays help explain the path — they are not the success score.
-          </p>
         </SectionShell>
       </aside>
 

@@ -1,18 +1,62 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import type { IWuTabItem } from '@npm-questionpro/wick-ui-lib';
-import { RadialRing, SectionShell } from './charts';
+import { useWuShowToast } from '@npm-questionpro/wick-ui-lib';
+import type { IWuTabItem, IWuTableColumnDef } from '@npm-questionpro/wick-ui-lib';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { EmptyChartNote, RadialRing, SectionShell, susLetter } from './charts';
 import { WuTabPlaceholder } from '@/components/ui/WuTabPlaceholder';
-import type { UsabilityAnalytics } from '@/data/mock-usability-analytics';
+import {
+  VARIANT_PALETTE,
+  type AnalyticsTester,
+  type AnalyticsVariant,
+  type NpsGroup,
+  type TestVideoRow,
+  type UsabilityAnalytics,
+} from '@/data/mock-usability-analytics';
 
+const WuButton = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
+  { ssr: false }
+);
+const WuCheckbox = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuCheckbox })),
+  { ssr: false }
+);
+const WuInput = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuInput })),
+  { ssr: false }
+);
+const WuSelect = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuSelect })),
+  { ssr: false }
+);
 const WuTab = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTab })),
   { ssr: false }
 );
+const WuTable = dynamic(
+  () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuTable })),
+  { ssr: false }
+);
 
 type DiagSubTab = 'sus' | 'nps' | 'task-usability' | 'task-completion' | 'task-duration' | 'emotions';
+type ScopeOption = { value: string; label: string };
+
+const COMPARE = 'compare';
+const EASE_LABELS = ['Very difficult', 'Difficult', 'Neutral', 'Easy', 'Very easy'];
 
 const DIAG_TABS: { value: DiagSubTab; label: string }[] = [
   { value: 'sus', label: 'SUS' },
@@ -23,91 +67,6 @@ const DIAG_TABS: { value: DiagSubTab; label: string }[] = [
   { value: 'emotions', label: 'How it felt' },
 ];
 
-function SUSPanel({ data }: { data: UsabilityAnalytics }) {
-  const { susScore, susScores } = data.diagnostics;
-
-  const grade =
-    susScore >= 85 ? { label: 'Excellent', color: 'text-green-700', bg: 'bg-green-50' }
-    : susScore >= 68 ? { label: 'Good', color: 'text-blue-700', bg: 'bg-blue-50' }
-    : susScore >= 51 ? { label: 'OK', color: 'text-amber-700', bg: 'bg-amber-50' }
-    : { label: 'Poor', color: 'text-red-700', bg: 'bg-red-50' };
-
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-6">
-        <RadialRing score={susScore} size={130} label="/100" />
-        <div className="space-y-2">
-          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${grade.bg} ${grade.color}`}>
-            {grade.label}
-          </span>
-          <p className="text-sm text-gray-700">
-            A SUS score of <strong>{susScore}</strong> falls in the <strong>&ldquo;{grade.label}&rdquo;</strong> range.
-            Scores above 68 are generally considered acceptable. The industry average for software is 68.
-          </p>
-          <p className="text-xs text-gray-500">Based on {susScores.length} completed sessions.</p>
-        </div>
-      </div>
-
-      <SectionShell title="Per-Participant Deviation">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                {['Participant', 'SUS Score', 'Deviation from mean'].map((h) => (
-                  <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {susScores.map((row) => (
-                <tr key={row.anonymousId} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-gray-700">{row.anonymousId}</td>
-                  <td className="px-4 py-3 font-semibold text-gray-900">{row.score}</td>
-                  <td className={`px-4 py-3 font-medium ${row.deviation.startsWith('+') ? 'text-green-700' : 'text-red-600'}`}>
-                    {row.deviation}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </SectionShell>
-    </div>
-  );
-}
-
-function SimpleStatPanel({
-  value,
-  label,
-  description,
-  interpretation,
-  icon,
-}: {
-  value: string | number;
-  label: string;
-  description: string;
-  interpretation: string;
-  icon: string;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-5">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-blue-50">
-          <span className={`${icon} text-3xl text-blue-600`} />
-        </div>
-        <div>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
-          <p className="mt-0.5 text-sm text-gray-500">{label}</p>
-        </div>
-      </div>
-      <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
-        <p className="font-medium text-gray-900">{description}</p>
-        <p className="mt-1 text-gray-600">{interpretation}</p>
-      </div>
-    </div>
-  );
-}
-
 const EMOTION_DATA = [
   { label: 'Confident', pct: 38, color: '#22C55E' },
   { label: 'Neutral', pct: 30, color: '#9CA3AF' },
@@ -115,77 +74,524 @@ const EMOTION_DATA = [
   { label: 'Frustrated', pct: 12, color: '#EF4444' },
 ];
 
-function EmotionsPanel({ data }: { data: UsabilityAnalytics }) {
-  const { positiveSentimentPct } = data.diagnostics;
+function mean(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function formatDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return `${mins}m ${String(secs).padStart(2, '0')}s`;
+}
+
+function testersForScope(testers: AnalyticsTester[], scope: string): AnalyticsTester[] {
+  if (scope === COMPARE || !scope) return testers;
+  return testers.filter((tester) => tester.variantId === scope);
+}
+
+function SampleNote({ n }: { n: number }) {
+  return <p className="text-xs text-gray-500">n = {n}</p>;
+}
+
+function SUSPanel({
+  testers,
+  variants,
+  compare,
+}: {
+  testers: AnalyticsTester[];
+  variants: AnalyticsVariant[];
+  compare: boolean;
+}) {
+  const [query, setQuery] = useState('');
+  const average = mean(testers.map((tester) => tester.susScore));
+  const visible = testers.filter((tester) => tester.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const percentile = Math.max(5, Math.min(95, Math.round(average - 20)));
+
+  const grouped = variants.map((variant) => {
+    const group = testers.filter((tester) => tester.variantId === variant.id);
+    return { variant, testers: group, score: mean(group.map((tester) => tester.susScore)) };
+  });
+
+  const rows = visible.map((tester) => ({
+    id: tester.id,
+    name: tester.name,
+    variant: variants.find((variant) => variant.id === tester.variantId)?.name ?? '—',
+    q1: tester.susQuestions[0],
+    q2: tester.susQuestions[1],
+    q3: tester.susQuestions[2],
+    score: tester.susScore,
+    deviation: average === 0 ? '0%' : `${tester.susScore >= average ? '+' : ''}${(((tester.susScore - average) / average) * 100).toFixed(2)}%`,
+  }));
+
+  const columns: IWuTableColumnDef<(typeof rows)[number]>[] = [
+    { accessorKey: 'name', header: 'Name' },
+    ...(compare ? [{ accessorKey: 'variant' as const, header: 'Design' }] : []),
+    { accessorKey: 'q1', header: 'Q1' },
+    { accessorKey: 'q2', header: 'Q2' },
+    { accessorKey: 'q3', header: 'Q3' },
+    { accessorKey: 'score', header: 'Score' },
+    {
+      accessorKey: 'deviation',
+      header: 'Deviation',
+      cell: ({ row }) => (
+        <span className={row.original.deviation.startsWith('+') ? 'text-green-700' : 'text-red-600'}>
+          {row.original.deviation}
+        </span>
+      ),
+    },
+  ];
+
+  if (testers.length === 0) {
+    return <EmptyChartNote message="No sessions on this design yet." />;
+  }
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <p className="text-2xl font-bold text-green-600">{positiveSentimentPct}</p>
-        <p className="text-sm text-gray-600">positive sentiment across all sessions</p>
-      </div>
-      <div className="space-y-3">
-        {EMOTION_DATA.map((e) => (
-          <div key={e.label} className="flex items-center gap-3">
-            <span className="w-24 shrink-0 text-sm text-gray-700">{e.label}</span>
-            <div className="flex-1 overflow-hidden rounded-full bg-gray-100" style={{ height: 10 }}>
-              <div className="h-full rounded-full transition-all" style={{ width: `${e.pct}%`, backgroundColor: e.color }} />
+      <div className="flex flex-wrap items-center gap-8">
+        {compare && variants.length > 1 ? (
+          grouped.map(({ variant, score, testers: group }) => (
+            <div key={variant.id} className="flex items-center gap-3">
+              <RadialRing score={Number(score.toFixed(1))} size={110} label="/100" />
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{variant.name}</p>
+                <p className="text-xs text-gray-500">Letter {susLetter(score)} · n = {group.length}</p>
+              </div>
             </div>
-            <span className="w-10 text-right text-xs font-medium text-gray-500">{e.pct}%</span>
+          ))
+        ) : (
+          <>
+            <RadialRing score={Number(average.toFixed(1))} size={130} label="/100" />
+            <RadialRing score={percentile} max={100} size={100} label="percentile" />
+            <div className="flex h-[100px] w-[100px] flex-col items-center justify-center rounded-full border-8 border-blue-100">
+              <p className="text-2xl font-bold text-blue-800">{susLetter(average)}</p>
+              <p className="text-[10px] text-gray-500">letter</p>
+            </div>
+          </>
+        )}
+      </div>
+      <SampleNote n={testers.length} />
+      <SectionShell title="Testers">
+        <div className="mb-3 max-w-xs">
+          <WuInput
+            variant="outlined"
+            placeholder="Search testers"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+        <WuTable
+          data={rows as unknown[]}
+          columns={columns as unknown as IWuTableColumnDef<unknown>[]}
+          variant="striped"
+        />
+      </SectionShell>
+    </div>
+  );
+}
+
+function TaskEasePanel({
+  testers,
+  variants,
+  compare,
+  taskTitles,
+}: {
+  testers: AnalyticsTester[];
+  variants: AnalyticsVariant[];
+  compare: boolean;
+  taskTitles: string[];
+}) {
+  if (testers.length === 0) return <EmptyChartNote message="No sessions on this design yet." />;
+
+  const chartData = taskTitles.map((title, index) => {
+    const point: Record<string, string | number> = { task: `Task ${index + 1}` };
+    if (compare && variants.length > 1) {
+      for (const variant of variants) {
+        const group = testers.filter((tester) => tester.variantId === variant.id);
+        point[variant.name] = Number(mean(group.map((tester) => tester.taskEase[index] ?? 0)).toFixed(2));
+      }
+    } else {
+      point.Average = Number(mean(testers.map((tester) => tester.taskEase[index] ?? 0)).toFixed(2));
+    }
+    return point;
+  });
+
+  const series = compare && variants.length > 1
+    ? variants.map((variant, index) => ({ key: variant.name, color: VARIANT_PALETTE[index] }))
+    : [{ key: 'Average', color: '#1B87E6' }];
+
+  return (
+    <div className="space-y-3">
+      <SampleNote n={testers.length} />
+      <div className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#EEF3FB" />
+            <XAxis dataKey="task" tick={{ fontSize: 12, fill: '#545E6B' }} />
+            <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tickFormatter={(value) => EASE_LABELS[value - 1] ?? String(value)} width={110} tick={{ fontSize: 11, fill: '#545E6B' }} />
+            <Tooltip />
+            <Legend />
+            {series.map((item) => (
+              <Line key={item.key} type="monotone" dataKey={item.key} stroke={item.color} strokeWidth={2} dot />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function TaskCompletionPanel({
+  testers,
+  variants,
+  compare,
+  taskTitles,
+}: {
+  testers: AnalyticsTester[];
+  variants: AnalyticsVariant[];
+  compare: boolean;
+  taskTitles: string[];
+}) {
+  if (testers.length === 0) return <EmptyChartNote message="No sessions on this design yet." />;
+
+  const chartData = taskTitles.map((title, index) => {
+    const point: Record<string, string | number> = { task: `Task ${index + 1}` };
+    if (compare && variants.length > 1) {
+      for (const variant of variants) {
+        const group = testers.filter((tester) => tester.variantId === variant.id);
+        const complete = group.filter((tester) => tester.taskCompleted[index]).length;
+        point[`${variant.name} complete`] = complete;
+        point[`${variant.name} incomplete`] = group.length - complete;
+      }
+    } else {
+      const complete = testers.filter((tester) => tester.taskCompleted[index]).length;
+      point.Complete = complete;
+      point.Incomplete = testers.length - complete;
+    }
+    return point;
+  });
+
+  return (
+    <div className="space-y-3">
+      <SampleNote n={testers.length} />
+      <div className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#EEF3FB" />
+            <XAxis dataKey="task" tick={{ fontSize: 12, fill: '#545E6B' }} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#545E6B' }} />
+            <Tooltip />
+            <Legend />
+            {compare && variants.length > 1 ? (
+              variants.flatMap((variant, index) => [
+                <Bar key={`${variant.id}-c`} dataKey={`${variant.name} complete`} stackId={variant.id} fill={VARIANT_PALETTE[index]} />,
+                <Bar key={`${variant.id}-i`} dataKey={`${variant.name} incomplete`} stackId={variant.id} fill="#D8D8D8" />,
+              ])
+            ) : (
+              <>
+                <Bar dataKey="Complete" stackId="one" fill="#1B87E6" />
+                <Bar dataKey="Incomplete" stackId="one" fill="#D8D8D8" />
+              </>
+            )}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function TaskDurationPanel({
+  testers,
+  variants,
+  compare,
+  taskTitles,
+  showAverage,
+  highlightedIds,
+}: {
+  testers: AnalyticsTester[];
+  variants: AnalyticsVariant[];
+  compare: boolean;
+  taskTitles: string[];
+  showAverage: boolean;
+  highlightedIds: string[];
+}) {
+  if (testers.length === 0) return <EmptyChartNote message="No sessions on this design yet." />;
+
+  const chartData = taskTitles.map((_, index) => {
+    const point: Record<string, string | number> = { task: `Task ${index + 1}` };
+    if (compare && variants.length > 1) {
+      for (const variant of variants) {
+        const group = testers.filter((tester) => tester.variantId === variant.id);
+        point[variant.name] = Number(mean(group.map((tester) => tester.taskDurationSec[index] ?? 0)).toFixed(0));
+      }
+    } else if (showAverage) {
+      point.Average = Number(mean(testers.map((tester) => tester.taskDurationSec[index] ?? 0)).toFixed(0));
+    }
+    for (const tester of testers) {
+      if (highlightedIds.length === 0 || highlightedIds.includes(tester.id)) {
+        point[tester.name] = tester.taskDurationSec[index] ?? 0;
+      }
+    }
+    return point;
+  });
+
+  const testerSeries = testers.filter((tester) => highlightedIds.length === 0 || highlightedIds.includes(tester.id));
+
+  return (
+    <div className="space-y-3">
+      <SampleNote n={testers.length} />
+      <div className="h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#EEF3FB" />
+            <XAxis dataKey="task" tick={{ fontSize: 12, fill: '#545E6B' }} />
+            <YAxis tick={{ fontSize: 12, fill: '#545E6B' }} />
+            <Tooltip formatter={(value) => formatDuration(Number(value))} />
+            <Legend />
+            {compare && variants.length > 1
+              ? variants.map((variant, index) => (
+                  <Line key={variant.id} type="monotone" dataKey={variant.name} stroke={VARIANT_PALETTE[index]} strokeWidth={2} />
+                ))
+              : showAverage && <Line type="monotone" dataKey="Average" stroke="#1B3380" strokeWidth={2} />}
+            {(!compare || variants.length < 2) && testerSeries.slice(0, 8).map((tester, index) => (
+              <Line
+                key={tester.id}
+                type="monotone"
+                dataKey={tester.name}
+                stroke={VARIANT_PALETTE[index % VARIANT_PALETTE.length]}
+                strokeWidth={1}
+                dot={false}
+                strokeOpacity={0.55}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function NpsTables({ testers, variants, compare }: { testers: AnalyticsTester[]; variants: AnalyticsVariant[]; compare: boolean }) {
+  if (testers.length === 0) return <EmptyChartNote message="No sessions on this design yet." />;
+
+  const groups: NpsGroup[] = ['detractor', 'passive', 'promoter'];
+  const labels: Record<NpsGroup, string> = { detractor: 'Detractors', passive: 'Passives', promoter: 'Promoters' };
+  const nps = Math.round(
+    ((testers.filter((tester) => tester.npsGroup === 'promoter').length - testers.filter((tester) => tester.npsGroup === 'detractor').length) /
+      testers.length) *
+      100
+  );
+
+  function table(group: NpsGroup) {
+    const rows = testers.filter((tester) => tester.npsGroup === group).map((tester) => ({
+      id: tester.id,
+      name: tester.name,
+      score: tester.npsScore,
+      variant: variants.find((variant) => variant.id === tester.variantId)?.name ?? '—',
+    }));
+    const columns: IWuTableColumnDef<(typeof rows)[number]>[] = [
+      { accessorKey: 'name', header: 'Name' },
+      ...(compare ? [{ accessorKey: 'variant' as const, header: 'Design' }] : []),
+      { accessorKey: 'score', header: 'Score' },
+    ];
+    return (
+      <SectionShell title={`${labels[group]} (${rows.length})`}>
+        {rows.length === 0 ? (
+          <p className="text-sm text-gray-500">None in this group.</p>
+        ) : (
+          <WuTable data={rows as unknown[]} columns={columns as unknown as IWuTableColumnDef<unknown>[]} variant="striped" />
+        )}
+      </SectionShell>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-6">
+        <div>
+          <p className="text-3xl font-bold text-gray-900">{nps}</p>
+          <p className="text-sm text-gray-500">Net promoter score</p>
+          <SampleNote n={testers.length} />
+        </div>
+        {compare && variants.length > 1 && (
+          <div className="flex gap-4">
+            {variants.map((variant) => {
+              const group = testers.filter((tester) => tester.variantId === variant.id);
+              const score = group.length === 0
+                ? 0
+                : Math.round(
+                    ((group.filter((tester) => tester.npsGroup === 'promoter').length - group.filter((tester) => tester.npsGroup === 'detractor').length) /
+                      group.length) *
+                      100
+                  );
+              return (
+                <div key={variant.id}>
+                  <p className="text-lg font-semibold text-gray-900">{score}</p>
+                  <p className="text-xs text-gray-500">{variant.name} · n = {group.length}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {groups.map((group) => (
+          <div key={group}>{table(group)}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmotionsPanel({ n }: { n: number }) {
+  return (
+    <div className="space-y-5">
+      <SampleNote n={n} />
+      <div className="space-y-3">
+        {EMOTION_DATA.map((item) => (
+          <div key={item.label} className="flex items-center gap-3">
+            <span className="w-24 shrink-0 text-sm text-gray-700">{item.label}</span>
+            <div className="flex-1 overflow-hidden rounded-full bg-gray-100" style={{ height: 10 }}>
+              <div className="h-full rounded-full" style={{ width: `${item.pct}%`, backgroundColor: item.color }} />
+            </div>
+            <span className="w-10 text-right text-xs font-medium text-gray-500">{item.pct}%</span>
           </div>
         ))}
       </div>
-      <p className="text-xs text-gray-500">
-        Emotion labels are inferred from post-session comments. Treat them as satisfaction clues, and pair them with whether people reached the success page.
-      </p>
     </div>
+  );
+}
+
+function ParticipantFilter({
+  testers,
+  selectedIds,
+  showAverage,
+  onToggle,
+  onToggleAll,
+  onToggleAverage,
+}: {
+  testers: AnalyticsTester[];
+  selectedIds: string[];
+  showAverage: boolean;
+  onToggle: (id: string) => void;
+  onToggleAll: (checked: boolean) => void;
+  onToggleAverage: (checked: boolean) => void;
+}) {
+  const allSelected = testers.length > 0 && selectedIds.length === testers.length;
+  return (
+    <aside className="rounded-lg border border-gray-200 bg-white p-4">
+      <h3 className="text-sm font-semibold text-gray-900">Participant filter</h3>
+      <div className="mt-3 space-y-2">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+          <WuCheckbox checked={allSelected} onChange={onToggleAll} />
+          Select all
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+          <WuCheckbox checked={showAverage} onChange={onToggleAverage} />
+          Average
+        </label>
+        <div className="max-h-80 space-y-2 overflow-y-auto pt-1">
+          {testers.map((tester) => (
+            <label key={tester.id} className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+              <WuCheckbox checked={selectedIds.includes(tester.id)} onChange={() => onToggle(tester.id)} />
+              {tester.name}
+            </label>
+          ))}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function VideosTable({
+  videos,
+  variants,
+}: {
+  videos: TestVideoRow[];
+  variants: AnalyticsVariant[];
+}) {
+  const { showToast } = useWuShowToast();
+  const columns: IWuTableColumnDef<TestVideoRow>[] = [
+    { accessorKey: 'id', header: 'Id', cell: ({ row }) => <span className="font-mono text-xs">{row.original.id}</span> },
+    { accessorKey: 'name', header: 'Name' },
+    {
+      accessorKey: 'variantId',
+      header: 'Design',
+      cell: ({ row }) => variants.find((variant) => variant.id === row.original.variantId)?.name ?? '—',
+    },
+    {
+      accessorKey: 'duration',
+      header: 'Play',
+      cell: ({ row }) => (
+        <WuButton
+          variant="iconOnly"
+          size="sm"
+          aria-label={`Play ${row.original.name}`}
+          Icon={<span className="wm-play-arrow" />}
+          onClick={() => showToast({ message: `Playing ${row.original.name}`, variant: 'success' })}
+        />
+      ),
+    },
+    { accessorKey: 'rating', header: 'Rating' },
+    { accessorKey: 'notes', header: 'Notes' },
+  ];
+
+  return (
+    <SectionShell title="Test videos">
+      <WuTable
+        data={videos as unknown[]}
+        columns={columns as unknown as IWuTableColumnDef<unknown>[]}
+        variant="striped"
+      />
+    </SectionShell>
   );
 }
 
 export function UXDiagnosticsTab({ data }: { data: UsabilityAnalytics }) {
   const [subTab, setSubTab] = useState<DiagSubTab>('sus');
-  const d = data.diagnostics;
+  const hasVariants = data.variants.length > 1;
+  const [scope, setScope] = useState(hasVariants ? COMPARE : data.variants[0]?.id ?? '');
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => data.testers.map((tester) => tester.id));
+  const [showAverage, setShowAverage] = useState(true);
+
+  const scopeOptions: ScopeOption[] = useMemo(() => {
+    if (!hasVariants) return [];
+    return [
+      { value: COMPARE, label: 'Compare' },
+      ...data.variants.map((variant) => ({ value: variant.id, label: variant.name })),
+    ];
+  }, [data.variants, hasVariants]);
+
+  const scopedTesters = testersForScope(data.testers, scope).filter((tester) => selectedIds.includes(tester.id));
+  const scopedVideos = data.videos.filter((video) => {
+    if (scope !== COMPARE && scope) return video.variantId === scope;
+    return selectedIds.includes(video.testerId);
+  }).filter((video) => selectedIds.includes(video.testerId));
+  const taskTitles = data.tasks.map((task) => task.title);
+  const compare = scope === COMPARE && hasVariants;
+  const selectedScope = scopeOptions.find((option) => option.value === scope) ?? scopeOptions[0];
 
   const panel = (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
-      {subTab === 'sus' && <SUSPanel data={data} />}
-      {subTab === 'nps' && (
-        <SimpleStatPanel
-          value={d.nps}
-          label="Net promoter score"
-          description="Willingness to recommend the experience after trying the task."
-          interpretation={`A score of ${d.nps} is a satisfaction signal, not a success score. Pair it with whether people reached the success page.`}
-          icon="wm-thumb-up"
-        />
-      )}
+      {subTab === 'sus' && <SUSPanel testers={scopedTesters} variants={data.variants} compare={compare} />}
+      {subTab === 'nps' && <NpsTables testers={scopedTesters} variants={data.variants} compare={compare} />}
       {subTab === 'task-usability' && (
-        <SimpleStatPanel
-          value={d.taskUsabilityRating}
-          label="How easy the task felt"
-          description="Average self-reported ease after the session (1–5). This is satisfaction, not whether they reached success."
-          interpretation="People rated the tasks as moderately easy. Pair this with who finished every task — ease scores can stay high even when some people never finish."
-          icon="wm-star"
-        />
+        <TaskEasePanel testers={scopedTesters} variants={data.variants} compare={compare} taskTitles={taskTitles} />
       )}
       {subTab === 'task-completion' && (
-        <SimpleStatPanel
-          value={d.taskCompletionRate}
-          label="Reached success"
-          description="People who finished every task in this test. This is effectiveness across the test, not a single task."
-          interpretation="16 of 24 finished all three tasks. 8 left at least one. Open Behavior analytics and switch to a task to see where they left."
-          icon="wm-check-circle"
-        />
+        <TaskCompletionPanel testers={scopedTesters} variants={data.variants} compare={compare} taskTitles={taskTitles} />
       )}
       {subTab === 'task-duration' && (
-        <SimpleStatPanel
-          value={d.taskDurationMedian}
-          label="Time to success"
-          description="Median time among people who finished the session. This is efficiency for completers, not for everyone."
-          interpretation="People who finished typically took about 8 minutes across all tasks. Open a single task in Behavior analytics to see time on that task."
-          icon="wm-timer"
+        <TaskDurationPanel
+          testers={scopedTesters}
+          variants={data.variants}
+          compare={compare}
+          taskTitles={taskTitles}
+          showAverage={showAverage}
+          highlightedIds={selectedIds}
         />
       )}
-      {subTab === 'emotions' && <EmotionsPanel data={data} />}
+      {subTab === 'emotions' && <EmotionsPanel n={scopedTesters.length} />}
     </div>
   );
 
@@ -196,10 +602,37 @@ export function UXDiagnosticsTab({ data }: { data: UsabilityAnalytics }) {
   }));
 
   return (
-    <WuTab
-      items={subTabItems}
-      value={subTab}
-      onValueChange={(v) => setSubTab(v as DiagSubTab)}
-    />
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="space-y-4">
+          {hasVariants && (
+            <div className="max-w-xs">
+              <WuSelect
+                data={scopeOptions}
+                accessorKey={{ value: 'value', label: 'label' }}
+                value={selectedScope}
+                Label="Design"
+                variant="outlined"
+                onSelect={(value) => setScope((value as ScopeOption).value)}
+              />
+            </div>
+          )}
+          <WuTab items={subTabItems} value={subTab} onValueChange={(v) => setSubTab(v as DiagSubTab)} />
+        </div>
+        <ParticipantFilter
+          testers={testersForScope(data.testers, scope)}
+          selectedIds={selectedIds}
+          showAverage={showAverage}
+          onToggle={(id) =>
+            setSelectedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
+          }
+          onToggleAll={(checked) =>
+            setSelectedIds(checked ? testersForScope(data.testers, scope).map((tester) => tester.id) : [])
+          }
+          onToggleAverage={setShowAverage}
+        />
+      </div>
+      <VideosTable videos={scopedVideos} variants={data.variants} />
+    </div>
   );
 }
