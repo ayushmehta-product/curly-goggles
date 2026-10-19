@@ -58,7 +58,7 @@ export function InsightsChatWidget({
 
   return (
     <>
-      <InsightsChatButton onClick={() => onOpenChange(true)} />
+      {!isOpen ? <InsightsChatButton onClick={() => onOpenChange(true)} /> : null}
       <InsightsChatDrawer
         open={isOpen}
         onOpenChange={onOpenChange}

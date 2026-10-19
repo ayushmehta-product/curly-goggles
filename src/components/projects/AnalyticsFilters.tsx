@@ -105,7 +105,6 @@ export function AnalyticsFilters({
           variant="outlined"
           formatString="MMM d, yyyy"
           placeholder="Select dates"
-          showResetButton
           value={range}
           minDate={new Date(2026, 7, 1)}
           maxDate={new Date(2026, 8, 30)}

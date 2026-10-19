@@ -20,6 +20,8 @@ export interface FocusGroup {
   createdAt: string;
   updatedAt: string;
   tags?: string[];
+  /** When set, the group is only visible inside this folder. */
+  folderId?: string;
 }
 
 export const FOCUS_GROUP_STATUS_LABELS: Record<FocusGroupStatus, string> = {
@@ -44,6 +46,7 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     createdAt: '2026-06-28T10:30:00.000Z',
     updatedAt: '2026-07-09T09:10:00.000Z',
     tags: ['checkout', 'e-commerce', 'pricing'],
+    folderId: 'fgf-commerce',
   },
   {
     id: 'fg-002',
@@ -58,6 +61,7 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     createdAt: '2026-06-20T14:20:00.000Z',
     updatedAt: '2026-07-08T16:45:00.000Z',
     tags: ['streaming', 'recommendations'],
+    folderId: 'fgf-commerce',
   },
   {
     id: 'fg-003',
@@ -86,6 +90,7 @@ export const MOCK_FOCUS_GROUPS: FocusGroup[] = [
     createdAt: '2026-05-18T15:10:00.000Z',
     updatedAt: '2026-06-19T19:30:00.000Z',
     tags: ['payroll', 'small business', 'trust'],
+    folderId: 'fgf-trust',
   },
   {
     id: 'fg-005',

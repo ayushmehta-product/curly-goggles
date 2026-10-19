@@ -34,6 +34,14 @@ export type TrackingConfig =
   | SaasTrackingConfig
   | FigmaTrackingConfig;
 
+export interface TestDesignVariant {
+  id: string;
+  name: string;
+  url: string;
+  enrolled: number;
+  goal: number;
+}
+
 export interface UsabilityTest {
   id: string;
   title: string;
@@ -52,6 +60,9 @@ export interface UsabilityTest {
   pendingParticipantResponses: number;
   activeSessions: number;
   tags?: string[];
+  variants?: TestDesignVariant[];
+  /** When set, the test is only visible inside this folder. */
+  folderId?: string;
 }
 
 export const TEST_STATUS_LABELS: Record<TestStatus, string> = {
@@ -79,17 +90,17 @@ export const MOCK_USABILITY_TESTS: UsabilityTest[] = [
     id: 'ut-001',
     title: 'Greater Midland Community Onboarding Flow',
     status: 'active',
-    surface: 'figma',
+    surface: 'website',
     tracking: {
-      surface: 'figma',
-      connectedAccount: 'maya.iyer@questionpro.com',
-      fileName: 'Greater Midland Community — Onboarding v4',
-      trackInteractiveComponents: true,
+      surface: 'website',
+      url: 'https://midland.example.com',
+      recordingOnly: false,
+      snippetVerified: true,
     },
     taskDescription: 'Get set up as a new member, take a first action, and find an answer if you get stuck.',
     participantTarget: 'New users who signed up in the past 14 days',
     participantsEnrolled: 24,
-    participantGoal: 30,
+    participantGoal: 24,
     sessionsCompleted: 24,
     sessionsTotal: 24,
     createdBy: { name: 'Maya Iyer', initials: 'MI' },
@@ -97,7 +108,24 @@ export const MOCK_USABILITY_TESTS: UsabilityTest[] = [
     updatedAt: '2026-05-12T08:30:00.000Z',
     pendingParticipantResponses: 6,
     activeSessions: 2,
-    tags: ['onboarding', 'figma prototype', 'activation'],
+    tags: ['onboarding', 'design variants', 'activation'],
+    folderId: 'utf-onboarding',
+    variants: [
+      {
+        id: 'current',
+        name: 'Current onboarding',
+        url: 'https://midland.example.com',
+        enrolled: 12,
+        goal: 12,
+      },
+      {
+        id: 'new',
+        name: 'New onboarding',
+        url: 'https://new.midland.example.com',
+        enrolled: 12,
+        goal: 12,
+      },
+    ],
   },
   {
     id: 'ut-002',
@@ -122,6 +150,7 @@ export const MOCK_USABILITY_TESTS: UsabilityTest[] = [
     pendingParticipantResponses: 8,
     activeSessions: 3,
     tags: ['checkout', 'e-commerce', 'conversion'],
+    folderId: 'utf-checkout',
   },
   {
     id: 'ut-003',
@@ -339,5 +368,6 @@ export const MOCK_USABILITY_TESTS: UsabilityTest[] = [
     pendingParticipantResponses: 0,
     activeSessions: 0,
     tags: ['fintech', 'wallet', 'first-launch'],
+    folderId: 'utf-onboarding',
   },
 ];

@@ -1,8 +1,23 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { SelectableCard } from '@/components/ui/SelectableCard';
-import type { UsabilityCreateDraft, UsabilitySurface, WebsiteLinkState, SaasLinkState, FigmaLinkState } from '@/data/usability-create-storage';
+import {
+  MAX_VARIANTS,
+  areAllVariantsConnected,
+  attachMappingsToNewVariant,
+  defaultVariantName,
+  duplicateVariant,
+  emptyVariant,
+  isVariantConnected,
+  type FigmaLinkState,
+  type SaasLinkState,
+  type UsabilityCreateDraft,
+  type UsabilitySurface,
+  type UsabilityVariantDraft,
+  type WebsiteLinkState,
+} from '@/data/usability-create-storage';
 
 const WuButton = dynamic(
   () => import('@npm-questionpro/wick-ui-lib').then((m) => ({ default: m.WuButton })),
@@ -31,15 +46,15 @@ const WuCopyToClipboard = dynamic(
 
 interface LinksStepProps {
   draft: UsabilityCreateDraft;
-  fetchingPages: boolean;
+  fetchingVariantId: string | null;
   onDraftChange: (patch: Partial<UsabilityCreateDraft>) => void;
-  onVerify: () => void;
+  onVerify: (variantId: string) => void;
   onBack: () => void;
   onSaveDraft: () => void;
   onContinue: () => void;
 }
 
-const SURFACE_OPTIONS: { value: UsabilitySurface; title: string; description: string; icon: React.ReactNode }[] = [
+const SURFACE_OPTIONS: { value: UsabilitySurface; title: string; description: string; icon: ReactNode }[] = [
   {
     value: 'website',
     title: 'Website',
@@ -67,11 +82,12 @@ const ENV_OPTIONS = [
 
 const FIGMA_FILES = [
   'Greater Midland Community — Onboarding v4',
+  'Greater Midland Community — Onboarding v5',
   'Checkout Redesign 2026',
   'Mobile Nav Exploration',
 ];
 
-const FIGMA_FILE_OPTIONS = FIGMA_FILES.map((f) => ({ value: f, label: f }));
+const FIGMA_FILE_OPTIONS = FIGMA_FILES.map((file) => ({ value: file, label: file }));
 
 function SnippetBlock({ studySlug, env }: { studySlug?: string; env?: string }) {
   const slug = studySlug ?? 'your-study-id';
@@ -158,19 +174,7 @@ function WebsitePanel({
   onVerify: () => void;
 }) {
   return (
-    <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-          <span className="wm-layers text-base" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Connect this website</p>
-          <p className="mt-0.5 text-xs text-gray-500">
-            We list pages from this URL so you can mark where each task starts and what counts as success. Tracking then records the path people actually take.
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-4">
       <WuInput
         Label="Website URL"
         variant="outlined"
@@ -192,9 +196,11 @@ function WebsitePanel({
       {!state.recordingOnly && (
         <>
           <SnippetBlock />
-          <p className="text-xs text-gray-500">Paste this before <code>&lt;/head&gt;</code> on every page you want to observe.</p>
+          <p className="text-xs text-gray-500">
+            Paste this before <code>&lt;/head&gt;</code> on every page you want to observe. The snippet identifies the study only.
+          </p>
           <InfoCallout>
-            Single-page apps that don&apos;t change the URL won&apos;t show as separate pages. Use query parameters or hash routes if you need those steps in the catalog.
+            Testers are randomly assigned to one design when they start — not by this snippet.
           </InfoCallout>
         </>
       )}
@@ -231,19 +237,7 @@ function SaasPanel({
 }) {
   const envOption = ENV_OPTIONS.find((o) => o.value === state.environment) ?? ENV_OPTIONS[0];
   return (
-    <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-          <span className="wm-layers text-base" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Connect this product</p>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Same snippet, loaded after login. We list pages from the app URL so you can mark start and success for each task.
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <WuInput
           Label="App URL"
@@ -266,7 +260,10 @@ function SaasPanel({
       </div>
 
       <SnippetBlock env={state.environment} />
-      <p className="text-xs text-gray-500">Add to your app shell so it survives client-side routing.</p>
+      <p className="text-xs text-gray-500">Add to your app shell so it survives client-side routing. The snippet identifies the study only.</p>
+      <InfoCallout>
+        Testers are randomly assigned to one design when they start — not by this snippet.
+      </InfoCallout>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <WuInput
@@ -285,10 +282,6 @@ function SaasPanel({
       </div>
       <p className="text-xs text-gray-500">Shared only with matched testers once the test is live.</p>
 
-      <InfoCallout>
-        Testers need valid credentials to reach the screens you care about. The snippet only needs to load after login.
-      </InfoCallout>
-
       <VerifyRow
         verified={state.verified}
         disabled={!state.url || !state.email}
@@ -306,19 +299,7 @@ function FigmaPanel({ state, setState }: { state: FigmaLinkState; setState: (s: 
   const fileOption = FIGMA_FILE_OPTIONS.find((o) => o.value === state.file) ?? null;
 
   return (
-    <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
-          <span className="wm-gesture text-base" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Connect your Figma prototype</p>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Prototypes don&apos;t expose a live page list. People will mark the task done themselves when they think they have finished.
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-4">
       {!state.connected ? (
         <WuButton
           variant="secondary"
@@ -359,10 +340,6 @@ function FigmaPanel({ state, setState }: { state: FigmaLinkState; setState: (s: 
             />
             <span className="text-sm text-gray-700">Track interactive components (toggles, variant swaps)</span>
           </label>
-
-          <InfoCallout>
-            We only request scoped read access to the file you import — not your team, comments, or other projects.
-          </InfoCallout>
         </>
       )}
     </div>
@@ -396,16 +373,20 @@ const RESEARCH_RECS: Record<UsabilitySurface, string> = {
   figma: 'Prototype frames are not live pages. Use “Participant marks done” as success, and review the recording to judge whether they actually finished.',
 };
 
-function isTrackingReady(draft: UsabilityCreateDraft) {
-  if (draft.surface === 'website') return draft.website.verified;
-  if (draft.surface === 'saas') return draft.saas.verified;
-  if (draft.surface === 'figma') return draft.figma.connected && !!draft.figma.file;
-  return false;
+function connectionLabel(surface: UsabilitySurface | null, variant: UsabilityVariantDraft): string {
+  if (surface === 'website') return variant.website.url || 'No URL';
+  if (surface === 'saas') return variant.saas.url || 'No URL';
+  if (surface === 'figma') return variant.figma.file || 'No file';
+  return 'Not connected';
+}
+
+function nextVariantId(existing: UsabilityVariantDraft[]): string {
+  return `variant-${Date.now()}-${existing.length + 1}`;
 }
 
 export function LinksStep({
   draft,
-  fetchingPages,
+  fetchingVariantId,
   onDraftChange,
   onVerify,
   onBack,
@@ -413,29 +394,37 @@ export function LinksStep({
   onContinue,
 }: LinksStepProps) {
   const surface = draft.surface;
-  const trackingReady = isTrackingReady(draft);
+  const trackingReady = areAllVariantsConnected(draft);
   const surfaceLabel = surface ? SURFACE_LABELS[surface] : 'Not selected';
-  const trackingLabel = trackingReady ? 'Connected' : 'Not connected';
-  const pageCountLabel = draft.pages.length > 0 ? String(draft.pages.length) : 'Not listed yet';
+  const connectedCount = draft.variants.filter((variant) => isVariantConnected(surface, variant)).length;
 
-  function handleContinue() {
-    if (!surface || !trackingReady) return;
-    onContinue();
-  }
-
-  function setWebsite(website: WebsiteLinkState) {
-    const urlChanged = website.url !== draft.website.url;
+  function patchVariant(id: string, patch: Partial<UsabilityVariantDraft>) {
     onDraftChange({
-      website,
-      ...(urlChanged ? { pages: [], fetchError: null, fetchBlocked: false } : {}),
+      variants: draft.variants.map((variant) => (variant.id === id ? { ...variant, ...patch } : variant)),
     });
   }
 
-  function setSaas(saas: SaasLinkState) {
-    const urlChanged = saas.url !== draft.saas.url;
+  function addVariant() {
+    if (draft.variants.length >= MAX_VARIANTS) return;
+    const source = draft.variants[0] ?? emptyVariant('variant-a', 'Variant A');
+    const id = nextVariantId(draft.variants);
+    const name = defaultVariantName(draft.variants.length);
+    const created = duplicateVariant(source, id, name);
     onDraftChange({
-      saas,
-      ...(urlChanged ? { pages: [], fetchError: null, fetchBlocked: false } : {}),
+      variants: [...draft.variants, created],
+      tasks: attachMappingsToNewVariant(draft.tasks, source.id, id),
+    });
+  }
+
+  function removeVariant(id: string) {
+    if (draft.variants.length <= 1) return;
+    onDraftChange({
+      variants: draft.variants.filter((variant) => variant.id !== id),
+      tasks: draft.tasks.map((task) => {
+        const mappings = { ...task.mappings };
+        delete mappings[id];
+        return { ...task, mappings };
+      }),
     });
   }
 
@@ -445,7 +434,7 @@ export function LinksStep({
         <div className="border-b border-gray-100 px-5 py-3">
           <h2 className="text-base font-semibold text-gray-900">Links</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Choose what you are testing. We use this URL to list pages for start and success, then to record the path people take.
+            Choose what you are testing. Add a design variant for each URL or file you want people to try.
           </p>
         </div>
 
@@ -466,24 +455,97 @@ export function LinksStep({
             </div>
           </div>
 
-          {surface === 'website' && (
-            <WebsitePanel
-              state={draft.website}
-              setState={setWebsite}
-              fetchingPages={fetchingPages}
-              onVerify={onVerify}
-            />
-          )}
-          {surface === 'saas' && (
-            <SaasPanel
-              state={draft.saas}
-              setState={setSaas}
-              fetchingPages={fetchingPages}
-              onVerify={onVerify}
-            />
-          )}
-          {surface === 'figma' && (
-            <FigmaPanel state={draft.figma} setState={(figma) => onDraftChange({ figma })} />
+          {surface && (
+            <div className="space-y-4">
+              {draft.variants.map((variant, index) => (
+                <div key={variant.id} className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                      <span className="wm-layers text-base" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {draft.variants.length > 1 ? `Design variant ${index + 1}` : 'Connect this design'}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        Researcher-only name. Testers will not see this label.
+                      </p>
+                    </div>
+                    {draft.variants.length > 1 && (
+                      <WuButton
+                        variant="iconOnly"
+                        size="sm"
+                        color="error"
+                        aria-label={`Remove ${variant.name}`}
+                        Icon={<span className="wm-delete text-sm" />}
+                        onClick={() => removeVariant(variant.id)}
+                      />
+                    )}
+                  </div>
+
+                  <WuInput
+                    Label="Variant name"
+                    variant="outlined"
+                    placeholder={defaultVariantName(index)}
+                    value={variant.name}
+                    onChange={(e) => patchVariant(variant.id, { name: e.target.value })}
+                  />
+
+                  {surface === 'website' && (
+                    <WebsitePanel
+                      state={variant.website}
+                      setState={(website) => {
+                        const urlChanged = website.url !== variant.website.url;
+                        patchVariant(variant.id, {
+                          website,
+                          ...(urlChanged ? { pages: [], fetchError: null, fetchBlocked: false } : {}),
+                        });
+                      }}
+                      fetchingPages={fetchingVariantId === variant.id}
+                      onVerify={() => onVerify(variant.id)}
+                    />
+                  )}
+                  {surface === 'saas' && (
+                    <SaasPanel
+                      state={variant.saas}
+                      setState={(saas) => {
+                        const urlChanged = saas.url !== variant.saas.url;
+                        patchVariant(variant.id, {
+                          saas,
+                          ...(urlChanged ? { pages: [], fetchError: null, fetchBlocked: false } : {}),
+                        });
+                      }}
+                      fetchingPages={fetchingVariantId === variant.id}
+                      onVerify={() => onVerify(variant.id)}
+                    />
+                  )}
+                  {surface === 'figma' && (
+                    <FigmaPanel
+                      state={variant.figma}
+                      setState={(figma) => patchVariant(variant.id, { figma })}
+                    />
+                  )}
+
+                  {variant.pages.length > 0 && (
+                    <p className="text-xs text-gray-500">
+                      {variant.pages.length} page{variant.pages.length === 1 ? '' : 's'} listed for this design.
+                    </p>
+                  )}
+                </div>
+              ))}
+
+              <WuButton
+                variant="secondary"
+                Icon={<span className="wm-add" />}
+                disabled={draft.variants.length >= MAX_VARIANTS}
+                onClick={addVariant}
+              >
+                Add variant
+              </WuButton>
+              {draft.variants.length >= MAX_VARIANTS && (
+                <p className="text-xs text-gray-500">You can compare up to {MAX_VARIANTS} designs in one test.</p>
+              )}
+            </div>
           )}
 
           {!surface && (
@@ -501,7 +563,7 @@ export function LinksStep({
               Icon={<span className="wm-arrow-forward" />}
               iconPosition="right"
               disabled={!surface || !trackingReady}
-              onClick={handleContinue}
+              onClick={onContinue}
             >
               Continue
             </WuButton>
@@ -514,9 +576,23 @@ export function LinksStep({
           <h3 className="text-sm font-semibold text-gray-900">Test summary</h3>
           <div className="mt-3">
             <SummaryRow label="Testing surface" value={surfaceLabel} />
-            <SummaryRow label="Connection" value={trackingLabel} pill={trackingReady ? 'green' : 'gray'} />
-            <SummaryRow label="Pages listed" value={pageCountLabel} />
-            <SummaryRow label="Target participants" value="12" />
+            <SummaryRow
+              label="Design variants"
+              value={String(draft.variants.length)}
+            />
+            <SummaryRow
+              label="Connected"
+              value={`${connectedCount} of ${draft.variants.length}`}
+              pill={trackingReady ? 'green' : 'gray'}
+            />
+            {draft.variants.map((variant) => (
+              <SummaryRow
+                key={variant.id}
+                label={variant.name || 'Untitled variant'}
+                value={isVariantConnected(surface, variant) ? connectionLabel(surface, variant) : 'Not connected'}
+                pill={isVariantConnected(surface, variant) ? 'green' : 'gray'}
+              />
+            ))}
           </div>
         </div>
 
@@ -528,24 +604,6 @@ export function LinksStep({
             <p className="mt-2 text-xs leading-5 text-blue-800">{RESEARCH_RECS[surface]}</p>
           </div>
         )}
-
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-900">What you will see in analyze</h3>
-          <ul className="mt-3 space-y-2">
-            {[
-              { icon: 'wm-flag', label: 'Who reached the success you set' },
-              { icon: 'wm-account-tree', label: 'Paths from start toward success' },
-              { icon: 'wm-mouse', label: 'Clicks on start and success pages' },
-              { icon: 'wm-swap-vert', label: 'Whether people reached a success section' },
-              { icon: 'wm-play-circle', label: 'Replays to review leftover sessions' },
-            ].map(({ icon, label }) => (
-              <li key={label} className="flex items-center gap-2 text-xs text-gray-600">
-                <span className={`${icon} text-sm text-gray-400`} />
-                {label}
-              </li>
-            ))}
-          </ul>
-        </div>
       </aside>
     </div>
   );

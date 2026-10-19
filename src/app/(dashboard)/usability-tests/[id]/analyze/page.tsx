@@ -12,7 +12,7 @@ import { BenchmarksTab } from '@/components/usability-tests/analyze/BenchmarksTa
 import { EmptyState } from '@/components/ui/EmptyState';
 import { WuTabPlaceholder } from '@/components/ui/WuTabPlaceholder';
 import { MOCK_USABILITY_TESTS } from '@/data/mock-usability-tests';
-import { MOCK_USABILITY_ANALYTICS } from '@/data/mock-usability-analytics';
+import { MOCK_USABILITY_ANALYTICS, analyticsWithoutVariants } from '@/data/mock-usability-analytics';
 import { formatDate } from '@/data/mock-utils';
 import { routeId } from '@/data/route-id';
 
@@ -28,7 +28,6 @@ export default function UsabilityTestAnalyzePage() {
   const [activeTab, setActiveTab] = useState<AnalyzeTab>('behavior');
 
   const test = MOCK_USABILITY_TESTS.find((t) => t.id === id);
-  const analytics = { ...MOCK_USABILITY_ANALYTICS, testId: id };
 
   if (!test) {
     return (
@@ -41,6 +40,10 @@ export default function UsabilityTestAnalyzePage() {
       </div>
     );
   }
+
+  const analytics = test.id === 'ut-001'
+    ? MOCK_USABILITY_ANALYTICS
+    : analyticsWithoutVariants(MOCK_USABILITY_ANALYTICS, id);
 
   const tabItems: IWuTabItem[] = [
     {

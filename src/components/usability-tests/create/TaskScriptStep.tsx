@@ -7,13 +7,16 @@ import {
   addCustomPage,
   applyDefaultStartPages,
   emptyTask,
-  isTaskConfigured,
+  getTaskMapping,
+  isTaskConfiguredForAllVariants,
   pageCatalogUrl,
+  setTaskMapping,
   taskSuccessSummary,
   type LandmarkCache,
   type TaskSuccessMode,
   type UsabilityCreateDraft,
   type UsabilityTaskDraft,
+  type UsabilityVariantDraft,
 } from '@/data/usability-create-storage';
 
 const WuButton = dynamic(
@@ -41,7 +44,7 @@ interface TaskScriptStepProps {
   draft: UsabilityCreateDraft;
   fetchingPages: boolean;
   onDraftChange: (patch: Partial<UsabilityCreateDraft>) => void;
-  onRefreshPages: () => void;
+  onRefreshPages: (variantId: string) => void;
   onBack: () => void;
   onSaveDraft: () => void;
   onContinue: () => void;
@@ -182,6 +185,9 @@ function TaskCard({
   isFigma,
   landmarks,
   loadingUrl,
+  variants,
+  selectedVariantId,
+  onSelectVariant,
   onChange,
   onRemove,
 }: {
@@ -191,22 +197,23 @@ function TaskCard({
   isFigma: boolean;
   landmarks: LandmarkCache;
   loadingUrl: string | null;
+  variants: UsabilityVariantDraft[];
+  selectedVariantId: string;
+  onSelectVariant: (id: string) => void;
   onChange: (task: UsabilityTaskDraft) => void;
   onRemove: () => void;
 }) {
+  const mapping = getTaskMapping(task, selectedVariantId);
   const modeOptions = isFigma ? FIGMA_SUCCESS_OPTIONS : SUCCESS_MODE_OPTIONS;
-  const modeValue = modeOptions.find((option) => option.value === task.successMode) ?? modeOptions[0];
-  const successPage = pages.find((page) => page.id === task.successPageId);
+  const modeValue = modeOptions.find((option) => option.value === mapping.successMode) ?? modeOptions[0];
+  const successPage = pages.find((page) => page.id === mapping.successPageId);
   const pageLandmarks = successPage ? landmarks[successPage.url] : undefined;
   const loadingLandmarks = Boolean(successPage && loadingUrl === successPage.url);
+  const variantOptions = variants.map((variant) => ({ value: variant.id, label: variant.name }));
+  const selectedVariant = variantOptions.find((option) => option.value === selectedVariantId) ?? variantOptions[0];
 
-  function setMode(mode: TaskSuccessMode) {
-    onChange({
-      ...task,
-      successMode: mode,
-      successLandmarkId: null,
-      successPageId: mode === 'participant-done' ? task.successPageId : task.successPageId,
-    });
+  function patchMapping(patch: Partial<typeof mapping>) {
+    onChange(setTaskMapping(task, selectedVariantId, patch));
   }
 
   return (
@@ -243,12 +250,23 @@ function TaskCard({
           Describe the goal and situation. Do not name buttons, menus, or the success page — people should find those themselves.
         </p>
 
+        {variants.length > 1 && (
+          <WuSelect
+            Label="Start and success for"
+            data={variantOptions}
+            accessorKey={{ value: 'value', label: 'label' }}
+            value={selectedVariant}
+            onSelect={(v) => onSelectVariant((v as SelectOption).value)}
+            variant="outlined"
+          />
+        )}
+
         {!isFigma && (
           <CatalogPicker
             label="Task starts on"
             pages={pages}
-            value={task.startPageId}
-            onChange={(id) => onChange({ ...task, startPageId: id })}
+            value={mapping.startPageId}
+            onChange={(id) => patchMapping({ startPageId: id })}
             placeholder="Search pages"
           />
         )}
@@ -258,7 +276,10 @@ function TaskCard({
           data={modeOptions}
           accessorKey={{ value: 'value', label: 'label' }}
           value={modeValue}
-          onSelect={(v) => setMode((v as SelectOption).value as TaskSuccessMode)}
+          onSelect={(v) => patchMapping({
+            successMode: (v as SelectOption).value as TaskSuccessMode,
+            successLandmarkId: null,
+          })}
           variant="outlined"
         />
 
@@ -268,42 +289,53 @@ function TaskCard({
           </p>
         )}
 
-        {!isFigma && task.successMode !== 'participant-done' && (
+        {!isFigma && mapping.successMode !== 'participant-done' && (
           <CatalogPicker
-            label={task.successMode === 'reach-page' ? 'Success page' : 'On this page'}
+            label={mapping.successMode === 'reach-page' ? 'Success page' : 'On this page'}
             pages={pages}
-            value={task.successPageId}
-            onChange={(id) => onChange({ ...task, successPageId: id, successLandmarkId: null })}
+            value={mapping.successPageId}
+            onChange={(id) => patchMapping({ successPageId: id, successLandmarkId: null })}
             placeholder="Search pages"
           />
         )}
 
-        {!isFigma && task.successMode === 'reach-section' && (
+        {!isFigma && mapping.successMode === 'reach-section' && (
           <LandmarkPicker
             label="Success section"
             items={pageLandmarks?.sections ?? []}
-            value={task.successLandmarkId}
-            onChange={(id) => onChange({ ...task, successLandmarkId: id })}
+            value={mapping.successLandmarkId}
+            onChange={(id) => patchMapping({ successLandmarkId: id })}
             loading={loadingLandmarks}
             emptyLabel="No headings or sections found on this page. Add a page URL, or choose a different success."
           />
         )}
 
-        {!isFigma && task.successMode === 'click-control' && (
+        {!isFigma && mapping.successMode === 'click-control' && (
           <LandmarkPicker
             label="Success control"
             items={pageLandmarks?.controls ?? []}
-            value={task.successLandmarkId}
-            onChange={(id) => onChange({ ...task, successLandmarkId: id })}
+            value={mapping.successLandmarkId}
+            onChange={(id) => patchMapping({ successLandmarkId: id })}
             loading={loadingLandmarks}
             emptyLabel="No named buttons or links found on this page. Add a page URL, or choose “Participant marks done.”"
           />
         )}
 
-        {task.successMode === 'participant-done' && !isFigma && (
+        {mapping.successMode === 'participant-done' && !isFigma && (
           <p className="text-xs text-gray-500">
             Use this when the site has no reliable page, section, or control to observe — including recording-only tests.
           </p>
+        )}
+
+        {variants.length > 1 && (
+          <ul className="space-y-1 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+            {variants.map((variant) => (
+              <li key={variant.id}>
+                <span className="font-medium text-gray-800">{variant.name}.</span>{' '}
+                {taskSuccessSummary(task, variant.pages, variant.id)}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>
@@ -323,22 +355,32 @@ export function TaskScriptStep({
   const [urlError, setUrlError] = useState('');
   const [landmarks, setLandmarks] = useState<LandmarkCache>({});
   const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState(draft.variants[0]?.id ?? '');
   const pendingFetch = useRef<Set<string>>(new Set());
   const landmarksRef = useRef<LandmarkCache>({});
   landmarksRef.current = landmarks;
 
   const tasks = draft.tasks;
-  const pages = draft.pages;
+  const selectedVariant = draft.variants.find((variant) => variant.id === selectedVariantId) ?? draft.variants[0];
+  const pages = selectedVariant?.pages ?? [];
   const isFigma = draft.surface === 'figma';
   const hasPages = pages.length > 0;
-  const configuredCount = tasks.filter((task) => isTaskConfigured(task, hasPages)).length;
-  const catalogUrl = pageCatalogUrl(draft);
+  const configuredCount = tasks.filter((task) => isTaskConfiguredForAllVariants(task, draft)).length;
+  const catalogUrl = selectedVariant ? pageCatalogUrl(selectedVariant, draft.surface) : '';
+  const variantIds = draft.variants.map((variant) => variant.id);
+
+  useEffect(() => {
+    if (!draft.variants.some((variant) => variant.id === selectedVariantId) && draft.variants[0]) {
+      setSelectedVariantId(draft.variants[0].id);
+    }
+  }, [draft.variants, selectedVariantId]);
 
   useEffect(() => {
     const urls = new Set<string>();
     for (const task of tasks) {
-      if (task.successMode !== 'reach-section' && task.successMode !== 'click-control') continue;
-      const page = pages.find((item) => item.id === task.successPageId);
+      const mapping = getTaskMapping(task, selectedVariant?.id ?? '');
+      if (mapping.successMode !== 'reach-section' && mapping.successMode !== 'click-control') continue;
+      const page = pages.find((item) => item.id === mapping.successPageId);
       if (page) urls.add(page.url);
     }
 
@@ -369,24 +411,34 @@ export function TaskScriptStep({
     urls.forEach((url) => {
       void load(url);
     });
-  }, [tasks, pages]);
+  }, [tasks, pages, selectedVariant?.id]);
 
   function updateTask(id: string, updated: UsabilityTaskDraft) {
     onDraftChange({ tasks: tasks.map((task) => (task.id === id ? updated : task)) });
   }
 
   function addTask() {
-    const task = emptyTask(`task-${Date.now()}`);
-    if (isFigma) task.successMode = 'participant-done';
-    onDraftChange({ tasks: applyDefaultStartPages([...tasks, task], pages) });
+    const task = emptyTask(`task-${Date.now()}`, variantIds);
+    if (isFigma) {
+      let next = task;
+      for (const variantId of variantIds) {
+        next = setTaskMapping(next, variantId, { successMode: 'participant-done' });
+      }
+      onDraftChange({ tasks: selectedVariant ? applyDefaultStartPages([...tasks, next], pages, selectedVariant.id) : [...tasks, next] });
+      return;
+    }
+    onDraftChange({
+      tasks: selectedVariant ? applyDefaultStartPages([...tasks, task], pages, selectedVariant.id) : [...tasks, task],
+    });
   }
 
   function removeTask(id: string) {
     const next = tasks.filter((task) => task.id !== id);
-    onDraftChange({ tasks: next.length > 0 ? next : [emptyTask('task-1')] });
+    onDraftChange({ tasks: next.length > 0 ? next : [emptyTask('task-1', variantIds)] });
   }
 
   function handleAddPageUrl() {
+    if (!selectedVariant) return;
     const result = addCustomPage(pages, extraUrl);
     if ('error' in result) {
       setUrlError(result.error);
@@ -395,9 +447,12 @@ export function TaskScriptStep({
     setUrlError('');
     setExtraUrl('');
     onDraftChange({
-      pages: result.pages,
-      fetchError: null,
-      tasks: applyDefaultStartPages(tasks, result.pages),
+      variants: draft.variants.map((variant) =>
+        variant.id === selectedVariant.id
+          ? { ...variant, pages: result.pages, fetchError: null }
+          : variant
+      ),
+      tasks: applyDefaultStartPages(tasks, result.pages, selectedVariant.id),
     });
     void (async () => {
       try {
@@ -410,9 +465,12 @@ export function TaskScriptStep({
         if (response.ok && json.pages) {
           const merged = mergePages(result.pages, json.pages);
           onDraftChange({
-            pages: merged,
-            fetchBlocked: Boolean(json.blocked),
-            tasks: applyDefaultStartPages(tasks, merged),
+            variants: draft.variants.map((variant) =>
+              variant.id === selectedVariant.id
+                ? { ...variant, pages: merged, fetchBlocked: Boolean(json.blocked) }
+                : variant
+            ),
+            tasks: applyDefaultStartPages(tasks, merged, selectedVariant.id),
           });
         }
       } catch {
@@ -427,7 +485,7 @@ export function TaskScriptStep({
         <div className="border-b border-gray-100 px-5 py-3">
           <h2 className="text-base font-semibold text-gray-900">Discussion guide</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Write each task as a goal. Then mark the start page and the observable success — not a hint about what to click.
+            Tasks are shared across designs. When you have more than one design, set start and success for each variant.
           </p>
         </div>
 
@@ -440,15 +498,15 @@ export function TaskScriptStep({
 
           {!isFigma && !hasPages && (
             <div className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
-              {draft.fetchError || 'No pages listed from Links yet.'}{' '}
+              {selectedVariant?.fetchError || 'No pages listed from Links yet.'}{' '}
               Add a page URL below, or use “Participant marks done.”
-              {catalogUrl ? (
+              {catalogUrl && selectedVariant ? (
                 <>
                   {' '}
                   <button
                     type="button"
                     className="font-medium text-amber-900 underline"
-                    onClick={onRefreshPages}
+                    onClick={() => onRefreshPages(selectedVariant.id)}
                     disabled={fetchingPages}
                   >
                     {fetchingPages ? 'Listing pages…' : 'List pages from the Links URL'}
@@ -467,6 +525,9 @@ export function TaskScriptStep({
               isFigma={isFigma}
               landmarks={landmarks}
               loadingUrl={loadingUrl}
+              variants={draft.variants}
+              selectedVariantId={selectedVariant?.id ?? ''}
+              onSelectVariant={setSelectedVariantId}
               onChange={(updated) => updateTask(task.id, updated)}
               onRemove={() => removeTask(task.id)}
             />
@@ -480,7 +541,7 @@ export function TaskScriptStep({
             <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4">
               <p className="text-sm font-medium text-gray-800">Add a page URL</p>
               <p className="mt-1 text-xs text-gray-500">
-                Use this when a page is missing from the list — for example a confirmation screen that is not in the navigation.
+                Use this when a page is missing from the list for {selectedVariant?.name ?? 'this design'}.
               </p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="min-w-0 flex-1">
@@ -532,13 +593,13 @@ export function TaskScriptStep({
           <h3 className="text-sm font-semibold text-gray-900">Tasks ready</h3>
           <p className="mt-2 text-2xl font-semibold text-gray-900">{configuredCount} of {tasks.length}</p>
           <p className="mt-1 text-xs text-gray-500">
-            {configuredCount === 1 ? 'task has' : 'tasks have'} a start and a success
+            {configuredCount === 1 ? 'task has' : 'tasks have'} start and success for every design
           </p>
           <ul className="mt-3 space-y-2">
             {tasks.map((task, index) => (
               <li key={task.id} className="text-xs text-gray-600">
                 <span className="font-medium text-gray-800">Task {index + 1}.</span>{' '}
-                {taskSuccessSummary(task, pages)}
+                {selectedVariant ? taskSuccessSummary(task, pages, selectedVariant.id) : 'Not set'}
               </li>
             ))}
           </ul>

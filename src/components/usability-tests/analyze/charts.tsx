@@ -162,3 +162,19 @@ export function SectionShell({
     </section>
   );
 }
+
+export function susLetter(score: number): string {
+  if (score >= 80) return 'A';
+  if (score >= 68) return 'B';
+  if (score >= 51) return 'C';
+  if (score >= 40) return 'D';
+  return 'F';
+}
+
+export function EmptyChartNote({ message }: { message: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
+      {message}
+    </div>
+  );
+}

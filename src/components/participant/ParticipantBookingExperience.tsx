@@ -231,7 +231,6 @@ export function ParticipantBookingExperience() {
                   variant="outlined"
                   placeholder="Select date"
                   formatString="MMM d, yyyy"
-                  showResetButton
                   onReset={() => handleSelectDate(undefined)}
                 />
               </div>
